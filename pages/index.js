@@ -1,84 +1,307 @@
-﻿import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 
-export default function Home() {
-  const [services, setServices] = useState([]);
-  const [branches, setBranches] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  async function loadData() {
-    try {
-      const response = await fetch('/api/services');
-      const data = await response.json();
-      
-      if (data.success) {
-        setServices(data.services || []);
-        setBranches(data.branches || []);
-      }
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setLoading(false);
-    }
-  }
+export default function LandingPage() {
+  const router = useRouter();
+  const [showDemo, setShowDemo] = useState(false);
 
   return (
     <>
       <Head>
-        <title>Carwash Kenya - Book Your Carwash Online</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>CarWash Pro Kenya - Professional Carwash Management System</title>
+        <meta name="description" content="Modern carwash management platform for Kenya. KES 2,000/month with 30-day free trial." />
       </Head>
 
-      <main style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'system-ui' }}>
-        <header style={{ textAlign: 'center', marginBottom: '40px' }}>
-          <h1 style={{ fontSize: '2.5em', color: '#0070f3' }}>🚗 Carwash Kenya</h1>
-          <p style={{ fontSize: '1.2em', color: '#666' }}>Book your carwash in seconds!</p>
-        </header>
+      <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', minHeight: '100vh' }}>
+        {/* Navigation */}
+        <nav style={{ 
+          background: 'linear-gradient(135deg, #006633 0%, #004d26 100%)',
+          padding: '1rem 2rem',
+          color: 'white',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '2rem' }}>🚗</span>
+            <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 'bold' }}>CarWash Pro Kenya</h1>
+          </div>
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <button 
+              onClick={() => router.push('/login')}
+              style={{ 
+                background: 'transparent', 
+                border: '2px solid white', 
+                color: 'white',
+                padding: '0.5rem 1.5rem',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                fontWeight: '500'
+              }}
+            >
+              Login
+            </button>
+            <button 
+              onClick={() => router.push('/signup')}
+              style={{ 
+                background: '#FCD116', 
+                border: 'none', 
+                color: '#006633',
+                padding: '0.5rem 1.5rem',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                fontWeight: 'bold'
+              }}
+            >
+              Start Free Trial
+            </button>
+          </div>
+        </nav>
 
-        {loading ? (
-          <p style={{ textAlign: 'center' }}>Loading...</p>
-        ) : (
-          <>
-            <section style={{ marginBottom: '50px' }}>
-              <h2>📍 Our Branches</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
-                {branches.map(branch => (
-                  <div key={branch.id} style={{ border: '2px solid #e0e0e0', padding: '20px', borderRadius: '12px' }}>
-                    <h3>{branch.branch_name}</h3>
-                    <p>📍 {branch.address}</p>
-                    <p>📞 {branch.phone_number}</p>
-                    <p>🚙 {branch.number_of_bays} bays</p>
-                  </div>
-                ))}
-              </div>
-            </section>
+        {/* Hero Section */}
+        <section style={{
+          background: 'linear-gradient(135deg, #006633 0%, #004d26 100%)',
+          color: 'white',
+          padding: '5rem 2rem',
+          textAlign: 'center'
+        }}>
+          <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+            <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🇰🇪</div>
+            <h2 style={{ fontSize: '3rem', marginBottom: '1rem', fontWeight: 'bold' }}>
+              Transform Your Carwash Business
+            </h2>
+            <p style={{ fontSize: '1.5rem', marginBottom: '2rem', opacity: 0.9 }}>
+              Modern management system built for Kenyan carwashes
+            </p>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button 
+                onClick={() => router.push('/signup')}
+                style={{
+                  background: '#CE1126',
+                  color: 'white',
+                  border: 'none',
+                  padding: '1rem 2rem',
+                  fontSize: '1.2rem',
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  boxShadow: '0 4px 15px rgba(206,17,38,0.3)'
+                }}
+              >
+                Start 30-Day Free Trial →
+              </button>
+              <button 
+                onClick={() => setShowDemo(true)}
+                style={{
+                  background: 'white',
+                  color: '#006633',
+                  border: 'none',
+                  padding: '1rem 2rem',
+                  fontSize: '1.2rem',
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                View Demo
+              </button>
+            </div>
+            <p style={{ marginTop: '2rem', fontSize: '1.1rem' }}>
+              ✨ No credit card required • 🚀 Setup in 5 minutes • 💯 Cancel anytime
+            </p>
+          </div>
+        </section>
 
-            <section>
-              <h2>✨ Our Services</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
-                {services.map(service => (
-                  <div key={service.id} style={{ border: '2px solid #e0e0e0', padding: '20px', borderRadius: '12px', backgroundColor: '#fff' }}>
-                    <h3>{service.service_name}</h3>
-                    <p style={{ fontSize: '0.9em', color: '#999', fontStyle: 'italic' }}>{service.service_name_swahili}</p>
-                    <p>⏱️ {service.base_duration_minutes} minutes</p>
-                    <p style={{ fontSize: '1.5em', fontWeight: 'bold', color: '#0070f3' }}>From KES {service.min_price}</p>
-                    <button 
-                      onClick={() => window.location.href = '/book?service=' + service.id}
-                      style={{ width: '100%', padding: '12px', marginTop: '10px', backgroundColor: '#0070f3', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '1em', fontWeight: 'bold' }}
-                    >
-                      Book Now →
-                    </button>
-                  </div>
-                ))}
+        {/* Features Section */}
+        <section style={{ padding: '4rem 2rem', background: '#f9f9f9' }}>
+          <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+            <h3 style={{ textAlign: 'center', fontSize: '2.5rem', marginBottom: '3rem', color: '#006633' }}>
+              Everything You Need to Manage Your Carwash
+            </h3>
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
+              gap: '2rem' 
+            }}>
+              {[
+                { icon: '📊', title: 'Real-time Dashboard', desc: 'Monitor all operations from one beautiful dashboard' },
+                { icon: '🚙', title: 'Bay Management', desc: 'Track which bays are occupied and assign staff efficiently' },
+                { icon: '👥', title: 'Staff Management', desc: 'Clock in/out, assign jobs, track performance' },
+                { icon: '📦', title: 'Inventory Tracking', desc: 'Monitor soap, wax, towels, and supplies in real-time' },
+                { icon: '💰', title: 'Payment Integration', desc: 'M-Pesa and cash payments with automatic receipts' },
+                { icon: '📱', title: 'Mobile Optimized', desc: 'Works perfectly on phones, tablets, and computers' },
+                { icon: '📈', title: 'Reports & Analytics', desc: 'Daily, weekly, monthly reports with revenue tracking' },
+                { icon: '💬', title: 'SMS Notifications', desc: 'Automatic booking confirmations and reminders' }
+              ].map((feature, i) => (
+                <div key={i} style={{
+                  background: 'white',
+                  padding: '2rem',
+                  borderRadius: '12px',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>{feature.icon}</div>
+                  <h4 style={{ fontSize: '1.3rem', marginBottom: '0.5rem', color: '#006633' }}>{feature.title}</h4>
+                  <p style={{ color: '#666', lineHeight: '1.6' }}>{feature.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Pricing Section */}
+        <section style={{ padding: '4rem 2rem', background: 'white' }}>
+          <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center' }}>
+            <h3 style={{ fontSize: '2.5rem', marginBottom: '1rem', color: '#006633' }}>
+              Simple, Transparent Pricing
+            </h3>
+            <p style={{ fontSize: '1.2rem', color: '#666', marginBottom: '3rem' }}>
+              No hidden fees. Cancel anytime.
+            </p>
+            <div style={{
+              background: 'linear-gradient(135deg, #006633 0%, #004d26 100%)',
+              color: 'white',
+              padding: '3rem',
+              borderRadius: '20px',
+              boxShadow: '0 10px 40px rgba(0,102,51,0.2)'
+            }}>
+              <div style={{ fontSize: '3rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+                KES 2,000
               </div>
-            </section>
-          </>
-        )}
-      </main>
+              <div style={{ fontSize: '1.2rem', opacity: 0.9, marginBottom: '2rem' }}>
+                per month
+              </div>
+              <ul style={{ 
+                textAlign: 'left', 
+                listStyle: 'none', 
+                padding: 0,
+                fontSize: '1.1rem',
+                lineHeight: '2.5'
+              }}>
+                <li>✅ 30-day free trial</li>
+                <li>✅ Unlimited bookings</li>
+                <li>✅ Up to 5 staff accounts</li>
+                <li>✅ Full inventory management</li>
+                <li>✅ M-Pesa & SMS integration</li>
+                <li>✅ Daily reports & analytics</li>
+                <li>✅ Mobile app access</li>
+                <li>✅ Email & phone support</li>
+              </ul>
+              <button 
+                onClick={() => router.push('/signup')}
+                style={{
+                  background: '#FCD116',
+                  color: '#006633',
+                  border: 'none',
+                  padding: '1rem 2rem',
+                  fontSize: '1.2rem',
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  marginTop: '2rem',
+                  width: '100%'
+                }}
+              >
+                Start Free Trial →
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* CTA Section */}
+        <section style={{
+          background: 'linear-gradient(135deg, #CE1126 0%, #a00e1e 100%)',
+          color: 'white',
+          padding: '4rem 2rem',
+          textAlign: 'center'
+        }}>
+          <h3 style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>
+            Ready to Transform Your Carwash?
+          </h3>
+          <p style={{ fontSize: '1.3rem', marginBottom: '2rem', opacity: 0.9 }}>
+            Join 50+ carwashes across Kenya already using CarWash Pro
+          </p>
+          <button 
+            onClick={() => router.push('/signup')}
+            style={{
+              background: 'white',
+              color: '#CE1126',
+              border: 'none',
+              padding: '1rem 2rem',
+              fontSize: '1.2rem',
+              borderRadius: '12px',
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            Start Your Free Trial Now →
+          </button>
+        </section>
+
+        {/* Footer */}
+        <footer style={{ 
+          background: '#1a1a1a', 
+          color: 'white', 
+          padding: '2rem',
+          textAlign: 'center'
+        }}>
+          <p>© 2026 CarWash Pro Kenya. All rights reserved.</p>
+          <p style={{ marginTop: '0.5rem', opacity: 0.7 }}>
+            Built with ❤️ for Kenyan businesses
+          </p>
+        </footer>
+      </div>
+
+      {/* Demo Modal */}
+      {showDemo && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.8)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }} onClick={() => setShowDemo(false)}>
+          <div style={{
+            background: 'white',
+            padding: '2rem',
+            borderRadius: '20px',
+            maxWidth: '500px',
+            textAlign: 'center'
+          }} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ color: '#006633', marginBottom: '1rem' }}>Demo Access</h3>
+            <p style={{ marginBottom: '2rem' }}>Try the demo accounts:</p>
+            <div style={{ textAlign: 'left', marginBottom: '1rem' }}>
+              <p><strong>Owner:</strong> owner@westlands.demo</p>
+              <p><strong>Supervisor:</strong> supervisor@westlands.demo</p>
+              <p><strong>Staff:</strong> staff1@westlands.demo</p>
+            </div>
+            <button 
+              onClick={() => router.push('/login')}
+              style={{
+                background: '#006633',
+                color: 'white',
+                border: 'none',
+                padding: '1rem 2rem',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                width: '100%'
+              }}
+            >
+              Go to Login →
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
