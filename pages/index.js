@@ -212,7 +212,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* CTA Section */}
+       {/* CTA Section */}
         <section style={{
           background: 'linear-gradient(135deg, #CE1126 0%, #a00e1e 100%)',
           color: 'white',
@@ -268,25 +268,41 @@ export default function LandingPage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 1000
+          zIndex: 1000,
+          padding: '1rem'
         }} onClick={() => setShowDemo(false)}>
           <div style={{
             background: 'white',
             padding: '2rem',
             borderRadius: '20px',
-            maxWidth: '500px',
+            maxWidth: '400px',
+            width: '100%',
             textAlign: 'center'
           }} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ color: '#006633', marginBottom: '1rem' }}>Demo Access</h3>
-            <p style={{ marginBottom: '2rem' }}>Try the demo accounts:</p>
-            <div style={{ textAlign: 'left', marginBottom: '1rem' }}>
-              <p><strong>Owner:</strong> owner@westlands.demo</p>
-              <p><strong>Supervisor:</strong> supervisor@westlands.demo</p>
-              <p><strong>Staff:</strong> staff1@westlands.demo</p>
+            <h3 style={{ color: '#006633', marginBottom: '1rem' }}>🎯 Try Demo Account</h3>
+            <p style={{ color: '#666', marginBottom: '2rem' }}>
+              Experience CarWash Pro Kenya with our demo business account
+            </p>
+            
+            <div style={{
+              background: '#f0f7ff',
+              padding: '1rem',
+              borderRadius: '8px',
+              marginBottom: '1.5rem',
+              textAlign: 'left'
+            }}>
+              <div style={{ marginBottom: '0.5rem' }}>
+                <strong>Email:</strong> demo@carwashpro.co.ke
+              </div>
+              <div>
+                <strong>Password:</strong> demo123
+              </div>
             </div>
+
             <button 
               onClick={() => router.push('/login')}
               style={{
+                width: '100%',
                 background: '#006633',
                 color: 'white',
                 border: 'none',
@@ -294,10 +310,25 @@ export default function LandingPage() {
                 borderRadius: '8px',
                 cursor: 'pointer',
                 fontWeight: 'bold',
-                width: '100%'
+                marginBottom: '0.5rem'
               }}
             >
               Go to Login →
+            </button>
+            
+            <button 
+              onClick={() => setShowDemo(false)}
+              style={{
+                width: '100%',
+                background: '#f0f0f0',
+                color: '#666',
+                border: 'none',
+                padding: '0.75rem',
+                borderRadius: '8px',
+                cursor: 'pointer'
+              }}
+            >
+              Close
             </button>
           </div>
         </div>

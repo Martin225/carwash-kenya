@@ -133,48 +133,58 @@ export default function LoginPage() {
               </div>
 
               <button
-                type="submit"
-                disabled={loading}
-                style={{
-                  width: '100%',
-                  padding: '1rem',
-                  background: loading ? '#ccc' : '#006633',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '1rem',
-                  fontWeight: 'bold',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  marginBottom: '1rem'
-                }}
+              type="submit"
+              disabled={loading}
+              style={{
+                width: '100%',
+                padding: '1rem',
+                background: loading ? '#ccc' : '#006633',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '1rem',
+                fontWeight: 'bold',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                marginBottom: '1rem'
+              }}
+            >
+              {loading ? 'Logging in...' : 'Login'}
+            </button>
+          </form>
+
+          {/* Forgot Password Link */}
+          <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+            <a 
+              href="/forgot-password"
+              style={{ 
+                color: '#006633', 
+                textDecoration: 'none',
+                fontSize: '0.95rem',
+                fontWeight: '500'
+              }}
+            >
+              Forgot your password?
+            </a>
+          </div>
+
+          {/* Divider */}
+          <div style={{ textAlign: 'center', marginTop: '2rem', paddingTop: '1rem', borderTop: '1px solid #e0e0e0' }}>
+            <p style={{ color: '#666', marginBottom: '0.5rem' }}>
+              Don't have an account?{' '}
+              <a 
+                href="/signup" 
+                style={{ color: '#006633', fontWeight: 'bold', textDecoration: 'none' }}
               >
-                {loading ? 'Logging in...' : 'Login'}
-              </button>
-            </form>
-
-            <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
-              <p style={{ color: '#666', marginBottom: '0.5rem' }}>Demo Accounts:</p>
-              <p style={{ fontSize: '0.9rem', color: '#888' }}>
-                Super Admin: info@natsautomations.co.ke<br/>
-                Owner: owner@westlands.demo<br/>
-                Supervisor: supervisor@westlands.demo
-              </p>
-            </div>
-
-            <div style={{ textAlign: 'center', marginTop: '2rem', paddingTop: '1rem', borderTop: '1px solid #e0e0e0' }}>
-              <p style={{ color: '#666' }}>
-                Don't have an account?{' '}
-                <a 
-                  href="/signup" 
-                  style={{ color: '#006633', fontWeight: 'bold', textDecoration: 'none' }}
-                >
-                  Start Free Trial
-                </a>
-              </p>
-            </div>
+                Start Free Trial
+              </a>
+            </p>
+            <p style={{ fontSize: '0.85rem', color: '#999', marginTop: '1rem' }}>
+              Need help? Contact support@carwashpro.co.ke
+            </p>
           </div>
         </div>
       </div>
+    </div>
     </>
   );
 }

@@ -8,13 +8,12 @@ export default async function handler(req, res) {
   try {
     const { email, password } = req.body;
 
-    // For demo, we'll use simple password check
-    // In production, use bcrypt
+    // Get user with business details
     const user = await query(
-      `SELECT u.*, b.business_name, b.subscription_status, b.trial_ends_at
+      `SELECT u.*, b.business_name, b.subscription_status, b.trial_ends_at, b.is_active as business_active
        FROM users u
        LEFT JOIN businesses b ON u.business_id = b.id
-       WHERE u.email = $1 AND u.is_active = true`,
+       WHERE u.email = $1`,
       [email]
     );
 
@@ -27,8 +26,29 @@ export default async function handler(req, res) {
 
     const userData = user[0];
 
-    // For demo purposes, accept any password (remove in production!)
-    // TODO: Add bcrypt password verification
+    // Check if account is active
+    if (!userData.is_active) {
+      return res.status(403).json({
+        success: false,
+        message: 'Your account is pending approval. Please wait for admin confirmation.'
+      });
+    }
+
+    if (!userData.business_active) {
+      return res.status(403).json({
+        success: false,
+        message: 'Your business account is not active. Please contact support.'
+      });
+    }
+
+    // Check password (for demo, simple comparison)
+    // TODO: Use bcrypt in production: await bcrypt.compare(password, userData.password_hash)
+    if (userData.password_hash !== password) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Invalid email or password' 
+      });
+    }
 
     // Update last login
     await query(

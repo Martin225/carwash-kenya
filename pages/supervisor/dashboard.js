@@ -97,6 +97,23 @@ export default function SupervisorDashboard() {
                   fontWeight: 'bold'
                 }}
               >
+               
+              <button
+  onClick={() => router.push('/supervisor/staff')}
+  style={{
+    background: 'white',
+    color: '#006633',
+    border: '2px solid white',
+    padding: '0.75rem 1.5rem',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: 'bold',
+    fontSize: '1rem'
+  }}
+>
+  👥 Manage Staff
+</button>
+
                 Logout
               </button>
             </div>
