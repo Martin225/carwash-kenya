@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../../lib/auth-context';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 
 export default function StaffManagement() {
   const router = useRouter();
+  const { user, logout } = useAuth();
   const [staff, setStaff] = useState([]);
   const [showAdd, setShowAdd] = useState(false);
   const [formData, setFormData] = useState({
@@ -19,25 +21,31 @@ export default function StaffManagement() {
   }, []);
 
   async function loadStaff() {
-    try {
-      const response = await fetch('/api/supervisor/staff');
-      const data = await response.json();
-      if (data.success) {
-        setStaff(data.staff || []);
-      }
-    } catch (error) {
-      console.error('Error:', error);
+  try {
+    if (!user || !user.business_id) {
+      router.push('/login');
+      return;
     }
+
+    const response = await fetch(`/api/supervisor/staff?businessId=${user.business_id}`);
+    const data = await response.json();
+    if (data.success) {
+      setStaff(data.staff || []);
+    }
+  } catch (error) {
+    console.error('Error:', error);
   }
+}
 
   async function handleAdd(e) {
-    e.preventDefault();
-    try {
-      const response = await fetch('/api/supervisor/staff', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
+  e.preventDefault();
+  try {
+    const response = await fetch('/api/supervisor/staff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...formData, businessId: user.business_id })
+    });
+    // ... rest of code
 
       const data = await response.json();
       if (data.success) {
@@ -122,6 +130,7 @@ export default function StaffManagement() {
               >
                 ← Back
               </button>
+            onClick={() => logout()}
             </div>
           </div>
         </div>

@@ -98,6 +98,28 @@ export default function SignupPage() {
       </>
     );
   }
+{/* Logo/Home Link */}
+<div style={{
+  position: 'absolute',
+  top: '2rem',
+  left: '2rem'
+}}>
+  <a 
+    href="/"
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.5rem',
+      color: 'white',
+      textDecoration: 'none',
+      fontSize: '1.2rem',
+      fontWeight: 'bold'
+    }}
+  >
+    <span style={{ fontSize: '2rem' }}>🚗</span>
+    <span>CarWash Pro</span>
+  </a>
+</div>
 
   return (
     <>

@@ -11,6 +11,7 @@ export default function LandingPage() {
       <Head>
         <title>CarWash Pro Kenya - Professional Carwash Management System</title>
         <meta name="description" content="Modern carwash management platform for Kenya. KES 2,000/month with 30-day free trial." />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
       </Head>
 
       <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', minHeight: '100vh' }}>
@@ -212,7 +213,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-       {/* CTA Section */}
+        {/* CTA Section */}
         <section style={{
           background: 'linear-gradient(135deg, #CE1126 0%, #a00e1e 100%)',
           color: 'white',
@@ -246,15 +247,110 @@ export default function LandingPage() {
         <footer style={{ 
           background: '#1a1a1a', 
           color: 'white', 
-          padding: '2rem',
-          textAlign: 'center'
+          padding: '3rem 2rem',
         }}>
-          <p>© 2026 CarWash Pro Kenya. All rights reserved.</p>
-          <p style={{ marginTop: '0.5rem', opacity: 0.7 }}>
-            Built with ❤️ for Kenyan businesses
-          </p>
+          <div style={{ 
+            maxWidth: '1200px', 
+            margin: '0 auto',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: '2rem'
+          }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                <span style={{ fontSize: '2rem' }}>🚗</span>
+                <h3 style={{ margin: 0, fontSize: '1.3rem' }}>CarWash Pro Kenya</h3>
+              </div>
+              <p style={{ opacity: 0.7, lineHeight: '1.6', margin: '0.5rem 0' }}>
+                Modern carwash management system built for Kenyan businesses.
+              </p>
+              <p style={{ opacity: 0.7, marginTop: '1rem' }}>
+                © 2026 CarWash Pro Kenya<br/>
+                All rights reserved.
+              </p>
+            </div>
+
+            <div>
+              <h3 style={{ marginBottom: '1rem', fontSize: '1.2rem' }}>📞 Contact Us</h3>
+              <div style={{ opacity: 0.8, lineHeight: '2' }}>
+                <p style={{ margin: '0.5rem 0' }}>
+                  📱 <a href="tel:+254726259977" style={{ color: 'white', textDecoration: 'none' }}>+254 726 259 977</a>
+                </p>
+                <p style={{ margin: '0.5rem 0' }}>
+                  📧 <a href="mailto:info@natsautomations.co.ke" style={{ color: 'white', textDecoration: 'none' }}>info@natsautomations.co.ke</a>
+                </p>
+                <p style={{ margin: '0.5rem 0' }}>
+                  📍 01000 Nairobi, Kenya
+                </p>
+                <p style={{ margin: '0.5rem 0' }}>
+                  💬 <a 
+                    href="https://wa.me/254726259977?text=Hi,%20I'm%20interested%20in%20CarWash%20Pro%20Kenya" 
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: '#25D366', textDecoration: 'none', fontWeight: 'bold' }}
+                  >
+                    WhatsApp Us
+                  </a>
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <h3 style={{ marginBottom: '1rem', fontSize: '1.2rem' }}>🔗 Quick Links</h3>
+              <div style={{ opacity: 0.8, lineHeight: '2' }}>
+                <p style={{ margin: '0.5rem 0' }}>
+                  <a href="/signup" style={{ color: 'white', textDecoration: 'none' }}>Start Free Trial</a>
+                </p>
+                <p style={{ margin: '0.5rem 0' }}>
+                  <a href="/login" style={{ color: 'white', textDecoration: 'none' }}>Login</a>
+                </p>
+                <p style={{ margin: '0.5rem 0' }}>
+                  <a href="#features" style={{ color: 'white', textDecoration: 'none' }}>Features</a>
+                </p>
+                <p style={{ margin: '0.5rem 0' }}>
+                  <a href="#pricing" style={{ color: 'white', textDecoration: 'none' }}>Pricing</a>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ 
+            textAlign: 'center', 
+            marginTop: '2rem', 
+            paddingTop: '2rem', 
+            borderTop: '1px solid rgba(255,255,255,0.1)',
+            opacity: 0.7 
+          }}>
+            Built with ❤️ for Kenyan businesses by <strong>NATS Automations</strong>
+          </div>
         </footer>
       </div>
+
+      {/* WhatsApp Floating Button with proper icon */}
+      <a 
+        href="https://wa.me/254726259977?text=Hi,%20I'm%20interested%20in%20CarWash%20Pro%20Kenya" 
+        target="_blank" 
+        rel="noopener noreferrer" 
+        style={{ 
+          position: 'fixed', 
+          bottom: '2rem', 
+          right: '2rem', 
+          background: '#25D366', 
+          color: 'white', 
+          width: '65px', 
+          height: '65px', 
+          borderRadius: '50%', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          fontSize: '2.5rem', 
+          boxShadow: '0 4px 20px rgba(37,211,102,0.5)', 
+          textDecoration: 'none', 
+          zIndex: 1000 
+        }}
+      >
+        <i className="fab fa-whatsapp"></i>
+      </a>
 
       {/* Demo Modal */}
       {showDemo && (

@@ -2,7 +2,30 @@ import { query } from '../../../lib/db';
 
 export default async function handler(req, res) {
   try {
-    // Get bays with current status
+    const { businessId } = req.query;
+
+    if (!businessId) {
+      return res.status(400).json({ success: false, message: 'Business ID required' });
+    }
+
+    const branches = await query(
+      'SELECT id FROM branches WHERE business_id = $1',
+      [businessId]
+    );
+
+    if (branches.length === 0) {
+      return res.status(200).json({
+        success: true,
+        bays: [],
+        todayBookings: [],
+        pendingApprovals: [],
+        staff: [],
+        stats: { carsToday: 0, revenueToday: 0, activeBays: 0, staffOnDuty: 0 }
+      });
+    }
+
+    const branchId = branches[0].id;
+
     const bays = await query(`
       SELECT 
         b.*,
@@ -17,11 +40,10 @@ export default async function handler(req, res) {
       LEFT JOIN customers c ON bk.customer_id = c.id
       LEFT JOIN services s ON bk.service_id = s.id
       LEFT JOIN staff st ON b.current_staff_id = st.id
-      WHERE b.branch_id = 1
+      WHERE b.branch_id = $1
       ORDER BY b.bay_number
-    `);
+    `, [branchId]);
 
-    // Today's bookings
     const todayBookings = await query(`
       SELECT 
         bk.*,
@@ -32,12 +54,11 @@ export default async function handler(req, res) {
       JOIN vehicles v ON bk.vehicle_id = v.id
       JOIN customers c ON bk.customer_id = c.id
       JOIN services s ON bk.service_id = s.id
-      WHERE bk.branch_id = 1
+      WHERE bk.branch_id = $1
         AND bk.booking_date = CURRENT_DATE
       ORDER BY bk.booking_time
-    `);
+    `, [branchId]);
 
-    // Pending online bookings
     const pendingApprovals = await query(`
       SELECT 
         bk.*,
@@ -49,20 +70,18 @@ export default async function handler(req, res) {
       JOIN vehicles v ON bk.vehicle_id = v.id
       JOIN customers c ON bk.customer_id = c.id
       JOIN services s ON bk.service_id = s.id
-      WHERE bk.branch_id = 1
+      WHERE bk.branch_id = $1
         AND bk.status = 'pending'
         AND bk.booking_source = 'web'
         AND bk.approved_at IS NULL
       ORDER BY bk.created_at DESC
-    `);
+    `, [branchId]);
 
-    // Staff on duty
-    const staff = await query(`
-      SELECT * FROM staff 
-      WHERE branch_id = 1 AND is_active = true
-    `);
+    const staff = await query(
+      'SELECT * FROM staff WHERE branch_id = $1 AND is_active = true',
+      [branchId]
+    );
 
-    // Stats
     const completedToday = todayBookings.filter(b => b.status === 'completed');
     const stats = {
       carsToday: completedToday.length,

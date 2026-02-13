@@ -1,13 +1,27 @@
 import { query, querySingle } from '../../../lib/db';
 
 export default async function handler(req, res) {
-  const branchId = 1; // Westlands branch
-
   if (req.method === 'GET') {
-    // Get all staff
     try {
+      const { businessId } = req.query;
+
+      if (!businessId) {
+        return res.status(400).json({ success: false, message: 'Business ID required' });
+      }
+
+      const branches = await query(
+        'SELECT id FROM branches WHERE business_id = $1',
+        [businessId]
+      );
+
+      if (branches.length === 0) {
+        return res.status(200).json({ success: true, staff: [] });
+      }
+
+      const branchId = branches[0].id;
+
       const staff = await query(
-        `SELECT * FROM staff WHERE branch_id = $1 ORDER BY is_active DESC, full_name`,
+        'SELECT * FROM staff WHERE branch_id = $1 ORDER BY is_active DESC, full_name',
         [branchId]
       );
 
@@ -18,9 +32,23 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    // Add new staff
     try {
-      const { fullName, phone, pinCode, hourlyRate } = req.body;
+      const { fullName, phone, pinCode, hourlyRate, businessId } = req.body;
+
+      if (!businessId) {
+        return res.status(400).json({ success: false, message: 'Business ID required' });
+      }
+
+      const branches = await query(
+        'SELECT id FROM branches WHERE business_id = $1 LIMIT 1',
+        [businessId]
+      );
+
+      if (branches.length === 0) {
+        return res.status(400).json({ success: false, message: 'No branch found for this business' });
+      }
+
+      const branchId = branches[0].id;
 
       const newStaff = await querySingle(
         `INSERT INTO staff (branch_id, full_name, phone_number, pin_code, role, hourly_rate, is_active)
@@ -36,7 +64,6 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'PUT') {
-    // Update staff status
     try {
       const { staffId, isActive } = req.body;
 

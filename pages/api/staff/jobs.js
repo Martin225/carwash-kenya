@@ -2,7 +2,12 @@ import { query } from '../../../lib/db';
 
 export default async function handler(req, res) {
   try {
-    // Get staff jobs (using staff ID 1 for demo)
+    const { staffId } = req.query;
+
+    if (!staffId) {
+      return res.status(400).json({ success: false, message: 'Staff ID required' });
+    }
+
     const jobs = await query(`
       SELECT 
         bk.id,
@@ -18,16 +23,16 @@ export default async function handler(req, res) {
       JOIN customers c ON bk.customer_id = c.id
       JOIN services s ON bk.service_id = s.id
       LEFT JOIN bays b ON bk.bay_id = b.id
-      WHERE bk.assigned_staff_id = 1
+      WHERE bk.assigned_staff_id = $1
         AND bk.booking_date = CURRENT_DATE
       ORDER BY bk.booking_time
-    `);
+    `, [staffId]);
 
     const completedJobs = jobs.filter(j => j.status === 'completed');
     const stats = {
       todayJobs: jobs.length,
       completed: completedJobs.length,
-      earnings: completedJobs.length * 50 // Example: 50 per job
+      earnings: completedJobs.length * 50
     };
 
     return res.status(200).json({
