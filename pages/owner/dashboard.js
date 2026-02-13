@@ -121,7 +121,7 @@ export default function OwnerDashboard() {
               <p style={{ margin: '0.5rem 0 0 0', opacity: 0.9 }}>{user?.business_name || 'Loading...'}</p>
             </div>
             <div style={{ display: 'flex', gap: '1rem' }}>
-              <button onClick={() => router.push('/')} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Home</button>
+              <button onClick={() => setActiveTab('overview')} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Dashboard</button>
               <button onClick={() => logout()} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Logout</button>
             </div>
           </div>
@@ -144,7 +144,7 @@ export default function OwnerDashboard() {
           </div>
 
           <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-            {['overview', 'transactions', 'inventory', 'supervisors'].map(tab => (
+            {['overview', 'transactions', 'inventory', 'supervisors', 'branches'].map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: '0.75rem 1.5rem', background: activeTab === tab ? '#006633' : 'white', color: activeTab === tab ? 'white' : '#666', border: activeTab === tab ? 'none' : '2px solid #e0e0e0', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', textTransform: 'capitalize' }}>
                 {tab}
               </button>
@@ -245,6 +245,16 @@ export default function OwnerDashboard() {
               </div>
             </div>
           )}
+
+       {activeTab === 'branches' && (
+  <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+    <h2 style={{ margin: '0 0 1rem 0', color: '#006633' }}>🏢 Branch Management</h2>
+    <p style={{ color: '#666', marginBottom: '2rem' }}>Manage multiple locations for your carwash business</p>
+    <button onClick={() => router.push('/owner/branches')} style={{ background: '#006633', color: 'white', border: 'none', padding: '1rem 2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>
+      Manage Branches →
+    </button>
+  </div>
+)}
 
           {activeTab === 'overview' && (
             <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>

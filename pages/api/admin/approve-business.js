@@ -8,7 +8,6 @@ export default async function handler(req, res) {
   try {
     const { businessId } = req.body;
 
-    // Get business details
     const business = await querySingle(
       'SELECT * FROM businesses WHERE id = $1',
       [businessId]
@@ -21,7 +20,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // Approve the business
     await query(
       `UPDATE businesses 
        SET approved_at = NOW(), 
@@ -32,7 +30,6 @@ export default async function handler(req, res) {
       [businessId]
     );
 
-    // Activate owner account
     await query(
       `UPDATE users 
        SET is_active = true
@@ -40,23 +37,37 @@ export default async function handler(req, res) {
       [businessId]
     );
 
+    const existingBranch = await query(
+      'SELECT id FROM branches WHERE business_id = $1',
+      [businessId]
+    );
+
+    if (existingBranch.length === 0) {
+      const branch = await querySingle(
+        `INSERT INTO branches (business_id, branch_name, address, is_active)
+         VALUES ($1, $2, $3, true)
+         RETURNING id`,
+        [businessId, business.business_name + ' - Main Branch', business.location]
+      );
+
+      for (let i = 1; i <= 4; i++) {
+        await query(
+          `INSERT INTO bays (branch_id, bay_number, bay_name, status, is_active)
+           VALUES ($1, $2, $3, 'available', true)`,
+          [branch.id, i, `Bay ${i}`]
+        );
+      }
+
+      console.log('Branch and 4 bays created for:', business.business_name);
+    }
+
     const trialEndDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString();
     
-    // Log approval (for email integration later)
     console.log('=== BUSINESS APPROVED ===');
     console.log('Business:', business.business_name);
     console.log('Owner Email:', business.email);
-    console.log('Login URL: https://carwash-kenya.vercel.app/login');
     console.log('Trial Ends:', trialEndDate);
     console.log('========================');
-
-    // TODO: Send approval email
-    // Subject: "🎉 Your CarWash Pro Kenya Account is Approved!"
-    // Body:
-    // - "Your account has been approved!"
-    // - "Login now: https://carwash-kenya.vercel.app/login"
-    // - "Use the email and password you created during signup"
-    // - "Your 30-day free trial ends on: [trialEndDate]"
 
     return res.status(200).json({
       success: true,
