@@ -59,6 +59,23 @@ export default function StaffDashboard() {
   return (
     <>
       <Head><title>Staff Dashboard - CarWash Pro Kenya</title></Head>
+     if (loading) {
+  return (
+    <div style={{ fontFamily: 'system-ui', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #006633 0%, #004d26 100%)' }}>
+      <div style={{ textAlign: 'center', color: 'white' }}>
+        <div style={{ fontSize: '4rem', marginBottom: '1rem', animation: 'spin 1s linear infinite' }}>🔧</div>
+        <h2 style={{ margin: 0, fontSize: '1.5rem' }}>Loading Your Jobs...</h2>
+        <p style={{ opacity: 0.8, marginTop: '0.5rem' }}>Please wait</p>
+        <style>{`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    </div>
+  );
+}
 
       <div style={{ fontFamily: 'system-ui', minHeight: '100vh', background: '#f5f5f5', paddingBottom: '2rem' }}>
         <div style={{ background: 'linear-gradient(135deg, #006633 0%, #004d26 100%)', color: 'white', padding: '1rem', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>

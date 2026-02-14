@@ -127,6 +127,27 @@ export default function AdminDashboard() {
     }
   }
 
+  if (loading) {
+    return (
+      <>
+        <Head><title>Super Admin Dashboard - CarWash Pro Kenya</title></Head>
+        <div style={{ fontFamily: 'system-ui', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #006633 0%, #004d26 100%)' }}>
+          <div style={{ textAlign: 'center', color: 'white' }}>
+            <div style={{ fontSize: '4rem', marginBottom: '1rem', animation: 'spin 1s linear infinite' }}>👑</div>
+            <h2 style={{ margin: 0, fontSize: '1.5rem' }}>Loading Admin Dashboard...</h2>
+            <p style={{ opacity: 0.8, marginTop: '0.5rem' }}>Fetching all businesses</p>
+            <style>{`
+              @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+              }
+            `}</style>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <Head><title>Super Admin Dashboard - CarWash Pro Kenya</title></Head>
@@ -166,83 +187,79 @@ export default function AdminDashboard() {
           <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
             <h2 style={{ margin: '0 0 1.5rem 0', color: '#006633' }}>All Carwash Businesses</h2>
 
-            {loading ? (
-              <div style={{ textAlign: 'center', padding: '3rem', color: '#999' }}>Loading...</div>
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ background: '#f9f9f9' }}>
-                      <th style={{ padding: '1rem', textAlign: 'left' }}>Business</th>
-                      <th style={{ padding: '1rem', textAlign: 'left' }}>Owner</th>
-                      <th style={{ padding: '1rem', textAlign: 'left' }}>Location</th>
-                      <th style={{ padding: '1rem', textAlign: 'center' }}>Status</th>
-                      <th style={{ padding: '1rem', textAlign: 'center' }}>Trial Ends</th>
-                      <th style={{ padding: '1rem', textAlign: 'center' }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {businesses.map((business) => {
-                      const trialDaysLeft = business.trial_ends_at ? Math.ceil((new Date(business.trial_ends_at) - new Date()) / (1000 * 60 * 60 * 24)) : 0;
-                      const isTrialExpired = trialDaysLeft <= 0 && business.subscription_status === 'trial';
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: '#f9f9f9' }}>
+                    <th style={{ padding: '1rem', textAlign: 'left' }}>Business</th>
+                    <th style={{ padding: '1rem', textAlign: 'left' }}>Owner</th>
+                    <th style={{ padding: '1rem', textAlign: 'left' }}>Location</th>
+                    <th style={{ padding: '1rem', textAlign: 'center' }}>Status</th>
+                    <th style={{ padding: '1rem', textAlign: 'center' }}>Trial Ends</th>
+                    <th style={{ padding: '1rem', textAlign: 'center' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {businesses.map((business) => {
+                    const trialDaysLeft = business.trial_ends_at ? Math.ceil((new Date(business.trial_ends_at) - new Date()) / (1000 * 60 * 60 * 24)) : 0;
+                    const isTrialExpired = trialDaysLeft <= 0 && business.subscription_status === 'trial';
 
-                      return (
-                        <tr key={business.id} style={{ borderBottom: '1px solid #e0e0e0' }}>
-                          <td style={{ padding: '1rem' }}>
-                            <div style={{ fontWeight: 'bold' }}>{business.business_name}</div>
-                            <div style={{ fontSize: '0.9rem', color: '#666' }}>{business.email}</div>
-                          </td>
-                          <td style={{ padding: '1rem' }}>{business.owner_name}</td>
-                          <td style={{ padding: '1rem' }}>{business.location}</td>
-                          <td style={{ padding: '1rem', textAlign: 'center' }}>
-                            <span style={{ padding: '0.25rem 0.75rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold', background: business.subscription_status === 'active' ? '#e8f5e9' : business.subscription_status === 'trial' ? '#fff3e0' : business.subscription_status === 'suspended' ? '#ffebee' : '#f5f5f5', color: business.subscription_status === 'active' ? '#2e7d32' : business.subscription_status === 'trial' ? '#f57c00' : business.subscription_status === 'suspended' ? '#c62828' : '#666' }}>
-                              {business.subscription_status}
-                            </span>
-                            {isTrialExpired && (
-                              <div style={{ fontSize: '0.75rem', color: '#c62828', marginTop: '0.25rem' }}>Trial Expired!</div>
+                    return (
+                      <tr key={business.id} style={{ borderBottom: '1px solid #e0e0e0' }}>
+                        <td style={{ padding: '1rem' }}>
+                          <div style={{ fontWeight: 'bold' }}>{business.business_name}</div>
+                          <div style={{ fontSize: '0.9rem', color: '#666' }}>{business.email}</div>
+                        </td>
+                        <td style={{ padding: '1rem' }}>{business.owner_name}</td>
+                        <td style={{ padding: '1rem' }}>{business.location}</td>
+                        <td style={{ padding: '1rem', textAlign: 'center' }}>
+                          <span style={{ padding: '0.25rem 0.75rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold', background: business.subscription_status === 'active' ? '#e8f5e9' : business.subscription_status === 'trial' ? '#fff3e0' : business.subscription_status === 'suspended' ? '#ffebee' : '#f5f5f5', color: business.subscription_status === 'active' ? '#2e7d32' : business.subscription_status === 'trial' ? '#f57c00' : business.subscription_status === 'suspended' ? '#c62828' : '#666' }}>
+                            {business.subscription_status}
+                          </span>
+                          {isTrialExpired && (
+                            <div style={{ fontSize: '0.75rem', color: '#c62828', marginTop: '0.25rem' }}>Trial Expired!</div>
+                          )}
+                        </td>
+                        <td style={{ padding: '1rem', textAlign: 'center' }}>
+                          {business.trial_ends_at ? (
+                            <>
+                              <div>{new Date(business.trial_ends_at).toLocaleDateString()}</div>
+                              {trialDaysLeft > 0 && (
+                                <div style={{ fontSize: '0.75rem', color: '#666' }}>({trialDaysLeft} days left)</div>
+                              )}
+                            </>
+                          ) : '-'}
+                        </td>
+                        <td style={{ padding: '1rem', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            {!business.approved_at && (
+                              <button onClick={() => approveBusiness(business.id)} style={{ background: '#006633', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>✓ Approve</button>
                             )}
-                          </td>
-                          <td style={{ padding: '1rem', textAlign: 'center' }}>
-                            {business.trial_ends_at ? (
+
+                            {business.approved_at && business.email !== 'info@natsautomations.co.ke' && (
                               <>
-                                <div>{new Date(business.trial_ends_at).toLocaleDateString()}</div>
-                                {trialDaysLeft > 0 && (
-                                  <div style={{ fontSize: '0.75rem', color: '#666' }}>({trialDaysLeft} days left)</div>
+                                <button onClick={() => extendTrial(business.id, 60)} style={{ background: '#0066cc', color: 'white', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>+60 Days</button>
+                                <button onClick={() => extendTrial(business.id, 90)} style={{ background: '#9c27b0', color: 'white', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>+90 Days</button>
+
+                                {business.subscription_status !== 'suspended' ? (
+                                  <button onClick={() => suspendBusiness(business.id)} style={{ background: '#f44336', color: 'white', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>⛔ Suspend</button>
+                                ) : (
+                                  <button onClick={() => reactivateBusiness(business.id)} style={{ background: '#4caf50', color: 'white', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>✓ Reactivate</button>
                                 )}
                               </>
-                            ) : '-'}
-                          </td>
-                          <td style={{ padding: '1rem', textAlign: 'center' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                              {!business.approved_at && (
-                                <button onClick={() => approveBusiness(business.id)} style={{ background: '#006633', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>✓ Approve</button>
-                              )}
+                            )}
 
-                              {business.approved_at && business.email !== 'info@natsautomations.co.ke' && (
-                                <>
-                                  <button onClick={() => extendTrial(business.id, 60)} style={{ background: '#0066cc', color: 'white', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>+60 Days</button>
-                                  <button onClick={() => extendTrial(business.id, 90)} style={{ background: '#9c27b0', color: 'white', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>+90 Days</button>
-
-                                  {business.subscription_status !== 'suspended' ? (
-                                    <button onClick={() => suspendBusiness(business.id)} style={{ background: '#f44336', color: 'white', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>⛔ Suspend</button>
-                                  ) : (
-                                    <button onClick={() => reactivateBusiness(business.id)} style={{ background: '#4caf50', color: 'white', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>✓ Reactivate</button>
-                                  )}
-                                </>
-                              )}
-
-                              {business.email === 'info@natsautomations.co.ke' && (
-                                <span style={{ color: '#999', fontSize: '0.85rem' }}>Super Admin</span>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                            {business.email === 'info@natsautomations.co.ke' && (
+                              <span style={{ color: '#999', fontSize: '0.85rem' }}>Super Admin</span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>

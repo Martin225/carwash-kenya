@@ -6,6 +6,7 @@ import { useAuth } from '../../lib/auth-context';
 export default function OwnerDashboard() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState({
     todayRevenue: 0,
@@ -16,13 +17,15 @@ export default function OwnerDashboard() {
   const [transactions, setTransactions] = useState([]);
   const [inventory, setInventory] = useState([]);
   const [supervisors, setSupervisors] = useState([]);
+  const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddSupervisor, setShowAddSupervisor] = useState(false);
   const [supervisorForm, setSupervisorForm] = useState({
     fullName: '',
     email: '',
     phone: '',
-    password: ''
+    password: '',
+    branchId: ''
   });
 
   useEffect(() => {
@@ -30,6 +33,7 @@ export default function OwnerDashboard() {
       loadData();
       if (activeTab === 'supervisors') {
         loadSupervisors();
+        loadBranches();
       }
     } else {
       router.push('/login');
@@ -37,21 +41,25 @@ export default function OwnerDashboard() {
   }, [user, activeTab]);
 
   async function loadData() {
-    try {
-      const response = await fetch(`/api/owner/dashboard?businessId=${user.business_id}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setStats(data.stats || stats);
-        setTransactions(data.transactions || []);
-        setInventory(data.inventory || []);
-      }
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setLoading(false);
+  try {
+    setError(''); // Clear previous errors
+    const response = await fetch(`/api/owner/dashboard?businessId=${user.business_id}`);
+    const data = await response.json();
+    
+    if (data.success) {
+      setStats(data.stats || stats);
+      setTransactions(data.transactions || []);
+      setInventory(data.inventory || []);
+    } else {
+      setError(data.message || 'Failed to load dashboard data');
     }
+  } catch (error) {
+    console.error('Error:', error);
+    setError('Unable to connect to server. Please check your internet connection.');
+  } finally {
+    setLoading(false);
   }
+}
 
   async function loadSupervisors() {
     try {
@@ -59,6 +67,18 @@ export default function OwnerDashboard() {
       const data = await response.json();
       if (data.success) {
         setSupervisors(data.supervisors || []);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  }
+
+  async function loadBranches() {
+    try {
+      const response = await fetch(`/api/owner/branches?businessId=${user.business_id}`);
+      const data = await response.json();
+      if (data.success) {
+        setBranches(data.branches || []);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -78,7 +98,7 @@ export default function OwnerDashboard() {
       if (data.success) {
         alert('✅ Supervisor added successfully!');
         setShowAddSupervisor(false);
-        setSupervisorForm({ fullName: '', email: '', phone: '', password: '' });
+        setSupervisorForm({ fullName: '', email: '', phone: '', password: '', branchId: '' });
         loadSupervisors();
       } else {
         alert('❌ ' + data.message);
@@ -109,6 +129,27 @@ export default function OwnerDashboard() {
     }
   }
 
+  if (loading) {
+    return (
+      <>
+        <Head><title>Owner Dashboard - CarWash Pro Kenya</title></Head>
+        <div style={{ fontFamily: 'system-ui', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #006633 0%, #004d26 100%)' }}>
+          <div style={{ textAlign: 'center', color: 'white' }}>
+            <div style={{ fontSize: '4rem', marginBottom: '1rem', animation: 'spin 1s linear infinite' }}>⏳</div>
+            <h2 style={{ margin: 0, fontSize: '1.5rem' }}>Loading Dashboard...</h2>
+            <p style={{ opacity: 0.8, marginTop: '0.5rem' }}>Fetching your business data</p>
+            <style>{`
+              @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+              }
+            `}</style>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <Head><title>Owner Dashboard - CarWash Pro Kenya</title></Head>
@@ -128,6 +169,19 @@ export default function OwnerDashboard() {
         </div>
 
         <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto' }}>
+        <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto' }}>
+  {error && (
+    <div style={{ background: '#fff3cd', border: '2px solid #ffc107', borderRadius: '12px', padding: '1.5rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div style={{ fontSize: '2rem' }}>⚠️</div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontWeight: 'bold', color: '#856404', marginBottom: '0.5rem' }}>Unable to Load Data</div>
+        <div style={{ color: '#856404', fontSize: '0.9rem' }}>{error}</div>
+      </div>
+      <button onClick={() => { setError(''); loadData(); }} style={{ background: '#ffc107', color: '#856404', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Try Again</button>
+    </div>
+  )}
+
+  {/* Rest of dashboard content */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
             {[
               { label: 'Today Revenue', value: `Kshs ${stats.todayRevenue.toLocaleString()}`, icon: '💰', color: '#006633' },
@@ -158,18 +212,28 @@ export default function OwnerDashboard() {
                 <button onClick={() => setShowAddSupervisor(true)} style={{ background: '#006633', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>+ Add Supervisor</button>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.5rem' }}>
                 {supervisors.map((sup) => (
                   <div key={sup.id} style={{ border: '2px solid #e0e0e0', padding: '1.5rem', borderRadius: '12px', borderLeft: `4px solid ${sup.is_active ? '#4caf50' : '#f44336'}` }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                      <h3 style={{ margin: 0, fontSize: '1.2rem' }}>{sup.full_name}</h3>
-                      <span style={{ background: sup.is_active ? '#e8f5e9' : '#ffebee', color: sup.is_active ? '#2e7d32' : '#c62828', padding: '0.25rem 0.75rem', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: '1.2rem', marginBottom: '0.5rem' }}>{sup.full_name}</h3>
+                        {sup.branch_name && (
+                          <div style={{ fontSize: '0.85rem', color: '#006633', background: '#e8f5e9', padding: '0.25rem 0.75rem', borderRadius: '12px', display: 'inline-block', marginBottom: '0.5rem' }}>
+                            🏢 {sup.branch_name}
+                          </div>
+                        )}
+                      </div>
+                      <span style={{ background: sup.is_active ? '#e8f5e9' : '#ffebee', color: sup.is_active ? '#2e7d32' : '#c62828', padding: '0.25rem 0.75rem', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold', height: 'fit-content' }}>
                         {sup.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </div>
                     <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '1rem' }}>
                       <p style={{ margin: '0.5rem 0' }}>📧 {sup.email}</p>
                       <p style={{ margin: '0.5rem 0' }}>📞 {sup.phone}</p>
+                      {sup.branch_code && (
+                        <p style={{ margin: '0.5rem 0' }}>🔑 Branch: <strong>{sup.branch_code}</strong></p>
+                      )}
                       <p style={{ margin: '0.5rem 0' }}>📅 Added: {new Date(sup.created_at).toLocaleDateString()}</p>
                     </div>
                     <button onClick={() => toggleSupervisor(sup.id, sup.is_active)} style={{ width: '100%', padding: '0.75rem', background: sup.is_active ? '#f44336' : '#4caf50', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
@@ -189,72 +253,94 @@ export default function OwnerDashboard() {
           )}
 
           {activeTab === 'transactions' && (
-            <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-              <h2 style={{ margin: '0 0 1.5rem 0', color: '#006633' }}>💰 All Transactions</h2>
-              {transactions.length === 0 ? (
-                <p style={{ textAlign: 'center', color: '#999', padding: '2rem' }}>No transactions yet</p>
-              ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ background: '#f9f9f9' }}>
-                        <th style={{ padding: '1rem', textAlign: 'left' }}>Date/Time</th>
-                        <th style={{ padding: '1rem', textAlign: 'left' }}>Vehicle</th>
-                        <th style={{ padding: '1rem', textAlign: 'left' }}>Customer</th>
-                        <th style={{ padding: '1rem', textAlign: 'left' }}>Service</th>
-                        <th style={{ padding: '1rem', textAlign: 'right' }}>Amount</th>
-                        <th style={{ padding: '1rem', textAlign: 'center' }}>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {transactions.map((txn) => (
-                        <tr key={txn.id} style={{ borderBottom: '1px solid #e0e0e0' }}>
-                          <td style={{ padding: '1rem' }}>{new Date(txn.created_at).toLocaleString()}</td>
-                          <td style={{ padding: '1rem' }}>{txn.vehicle_reg}</td>
-                          <td style={{ padding: '1rem' }}>{txn.customer_name}</td>
-                          <td style={{ padding: '1rem' }}>{txn.service_name}</td>
-                          <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 'bold' }}>Kshs {txn.final_amount.toLocaleString()}</td>
-                          <td style={{ padding: '1rem', textAlign: 'center' }}>
-                            <span style={{ padding: '0.25rem 0.75rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold', background: txn.status === 'completed' ? '#e8f5e9' : '#fff3e0', color: txn.status === 'completed' ? '#2e7d32' : '#f57c00' }}>
-                              {txn.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'inventory' && (
-            <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-              <h2 style={{ margin: '0 0 1.5rem 0', color: '#006633' }}>📦 Inventory Status</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
-                {inventory.map((item) => (
-                  <div key={item.id} style={{ border: '2px solid #e0e0e0', padding: '1.5rem', borderRadius: '12px', borderLeft: `4px solid ${item.current_stock <= item.reorder_level ? '#f44336' : '#4caf50'}` }}>
-                    <h3 style={{ margin: '0 0 0.5rem 0' }}>{item.item_name}</h3>
-                    <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.5rem' }}>Category: {item.category}</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: '0.75rem 0' }}>{item.current_stock} {item.unit}</div>
-                    {item.current_stock <= item.reorder_level && (
-                      <div style={{ background: '#ffebee', color: '#c62828', padding: '0.5rem', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 'bold' }}>⚠️ Low Stock - Reorder Soon!</div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-       {activeTab === 'branches' && (
   <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-    <h2 style={{ margin: '0 0 1rem 0', color: '#006633' }}>🏢 Branch Management</h2>
-    <p style={{ color: '#666', marginBottom: '2rem' }}>Manage multiple locations for your carwash business</p>
-    <button onClick={() => router.push('/owner/branches')} style={{ background: '#006633', color: 'white', border: 'none', padding: '1rem 2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>
-      Manage Branches →
-    </button>
+    <h2 style={{ margin: '0 0 1.5rem 0', color: '#006633' }}>💰 All Transactions</h2>
+    {loading ? (
+      <div style={{ textAlign: 'center', padding: '3rem', color: '#999' }}>
+        <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⏳</div>
+        <p>Loading transactions...</p>
+      </div>
+    ) : transactions.length === 0 ? (
+      <div style={{ textAlign: 'center', padding: '3rem' }}>
+        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📭</div>
+        <p style={{ color: '#999', marginBottom: '1rem', fontSize: '1.1rem', fontWeight: '500' }}>No transactions yet</p>
+        <p style={{ color: '#666', fontSize: '0.9rem' }}>Transactions will appear here once customers start using your service</p>
+      </div>
+    ) : (
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ background: '#f9f9f9' }}>
+              <th style={{ padding: '1rem', textAlign: 'left' }}>Date/Time</th>
+              <th style={{ padding: '1rem', textAlign: 'left' }}>Vehicle</th>
+              <th style={{ padding: '1rem', textAlign: 'left' }}>Customer</th>
+              <th style={{ padding: '1rem', textAlign: 'left' }}>Service</th>
+              <th style={{ padding: '1rem', textAlign: 'right' }}>Amount</th>
+              <th style={{ padding: '1rem', textAlign: 'center' }}>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {transactions.map((txn) => (
+              <tr key={txn.id} style={{ borderBottom: '1px solid #e0e0e0' }}>
+                <td style={{ padding: '1rem' }}>{new Date(txn.created_at).toLocaleString()}</td>
+                <td style={{ padding: '1rem' }}>{txn.vehicle_reg}</td>
+                <td style={{ padding: '1rem' }}>{txn.customer_name}</td>
+                <td style={{ padding: '1rem' }}>{txn.service_name}</td>
+                <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 'bold' }}>Kshs {txn.final_amount.toLocaleString()}</td>
+                <td style={{ padding: '1rem', textAlign: 'center' }}>
+                  <span style={{ padding: '0.25rem 0.75rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold', background: txn.status === 'completed' ? '#e8f5e9' : '#fff3e0', color: txn.status === 'completed' ? '#2e7d32' : '#f57c00' }}>
+                    {txn.status}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
   </div>
 )}
+
+          {activeTab === 'inventory' && (
+  <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+    <h2 style={{ margin: '0 0 1.5rem 0', color: '#006633' }}>📦 Inventory Status</h2>
+    {loading ? (
+      <div style={{ textAlign: 'center', padding: '3rem', color: '#999' }}>
+        <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⏳</div>
+        <p>Loading inventory...</p>
+      </div>
+    ) : inventory.length === 0 ? (
+      <div style={{ textAlign: 'center', padding: '3rem' }}>
+        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📦</div>
+        <p style={{ color: '#999', marginBottom: '1rem', fontSize: '1.1rem', fontWeight: '500' }}>No inventory items yet</p>
+        <p style={{ color: '#666', fontSize: '0.9rem' }}>Your supervisor can add inventory items from their dashboard</p>
+      </div>
+    ) : (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
+        {inventory.map((item) => (
+          <div key={item.id} style={{ border: '2px solid #e0e0e0', padding: '1.5rem', borderRadius: '12px', borderLeft: `4px solid ${item.current_stock <= item.reorder_level ? '#f44336' : '#4caf50'}` }}>
+            <h3 style={{ margin: '0 0 0.5rem 0' }}>{item.item_name}</h3>
+            <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.5rem' }}>Category: {item.category}</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: '0.75rem 0' }}>{item.current_stock} {item.unit}</div>
+            {item.current_stock <= item.reorder_level && (
+              <div style={{ background: '#ffebee', color: '#c62828', padding: '0.5rem', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 'bold' }}>⚠️ Low Stock - Reorder Soon!</div>
+            )}
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+)}
+
+          {activeTab === 'branches' && (
+            <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+              <h2 style={{ margin: '0 0 1rem 0', color: '#006633' }}>🏢 Branch Management</h2>
+              <p style={{ color: '#666', marginBottom: '2rem' }}>Manage multiple locations for your carwash business</p>
+              <button onClick={() => router.push('/owner/branches')} style={{ background: '#006633', color: 'white', border: 'none', padding: '1rem 2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>
+                Manage Branches →
+              </button>
+            </div>
+          )}
 
           {activeTab === 'overview' && (
             <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
@@ -275,9 +361,23 @@ export default function OwnerDashboard() {
             <h2 style={{ color: '#006633', marginBottom: '1.5rem' }}>Add New Supervisor</h2>
             <form onSubmit={handleAddSupervisor}>
               <input type="text" placeholder="Full Name *" value={supervisorForm.fullName} onChange={(e) => setSupervisorForm({ ...supervisorForm, fullName: e.target.value })} required style={{ width: '100%', padding: '0.75rem', marginBottom: '1rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} />
+              
               <input type="email" placeholder="Email *" value={supervisorForm.email} onChange={(e) => setSupervisorForm({ ...supervisorForm, email: e.target.value })} required style={{ width: '100%', padding: '0.75rem', marginBottom: '1rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} />
+              
               <input type="tel" placeholder="Phone Number *" value={supervisorForm.phone} onChange={(e) => setSupervisorForm({ ...supervisorForm, phone: e.target.value })} required style={{ width: '100%', padding: '0.75rem', marginBottom: '1rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} />
+              
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', color: '#666' }}>Assign to Branch *</label>
+                <select value={supervisorForm.branchId} onChange={(e) => setSupervisorForm({ ...supervisorForm, branchId: e.target.value })} required style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }}>
+                  <option value="">Select Branch</option>
+                  {branches.map(branch => (
+                    <option key={branch.id} value={branch.id}>{branch.branch_name}</option>
+                  ))}
+                </select>
+              </div>
+              
               <input type="password" placeholder="Temporary Password *" value={supervisorForm.password} onChange={(e) => setSupervisorForm({ ...supervisorForm, password: e.target.value })} required style={{ width: '100%', padding: '0.75rem', marginBottom: '1.5rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} />
+              
               <button type="submit" style={{ width: '100%', padding: '1rem', background: '#006633', color: 'white', border: 'none', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', marginBottom: '0.5rem' }}>Add Supervisor</button>
               <button type="button" onClick={() => setShowAddSupervisor(false)} style={{ width: '100%', padding: '0.75rem', background: '#f0f0f0', color: '#666', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Cancel</button>
             </form>

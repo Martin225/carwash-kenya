@@ -85,7 +85,42 @@ export default function SupervisorInventory() {
       showToast('Failed to add item', 'error');
     }
   }
+if (!inventory) {
+  return (
+    <div style={{ fontFamily: 'system-ui', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f5' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: '4rem', marginBottom: '1rem', animation: 'spin 1s linear infinite' }}>📦</div>
+        <h2 style={{ margin: 0, fontSize: '1.5rem', color: '#006633' }}>Loading Inventory...</h2>
+        <style>{`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    </div>
+  );
+}
+```
 
+**Save and close**
+
+---
+
+## 🎨 **VISUAL EXAMPLE:**
+
+**Before (❌):**
+```
+[Blank white screen]
+...2 seconds later...
+[Dashboard appears]
+```
+
+**After (✅):**
+```
+[Loading Dashboard... ⏳ (spinning)]
+...data loads...
+[Dashboard appears smoothly]
   return (
     <>
       <Head><title>Inventory - CarWash Pro Kenya</title></Head>
