@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
+import { useToast } from '../../components/Toast';
 import { useAuth } from '../../lib/auth-context';
 
 export default function AdminDashboard() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { showToast, ToastContainer } = useToast();
   const [businesses, setBusinesses] = useState([]);
   const [stats, setStats] = useState({
     totalBusinesses: 0,
@@ -36,101 +38,102 @@ export default function AdminDashboard() {
   }
 
   async function approveBusiness(businessId) {
-    if (!confirm('Approve this business?')) return;
+  if (!confirm('Approve this business?')) return;
 
-    try {
-      const response = await fetch('/api/admin/approve-business', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ businessId })
-      });
+  try {
+    const response = await fetch('/api/admin/approve-business', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ businessId })
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (data.success) {
-        alert(`✅ Business approved!\n\nEmail: ${data.email}\nPassword will be sent to owner's email`);
-        loadData();
-      } else {
-        alert('❌ ' + data.message);
-      }
-    } catch (error) {
-      alert('Failed to approve business');
+    if (data.success) {
+      showToast(`Business approved! Email: ${data.email}`, 'success');
+      loadData();
+    } else {
+      showToast(data.message, 'error');
     }
+  } catch (error) {
+    showToast('Failed to approve business', 'error');
   }
+}
 
   async function extendTrial(businessId, days) {
-    if (!confirm(`Extend trial by ${days} days?`)) return;
+  if (!confirm(`Extend trial by ${days} days?`)) return;
 
-    try {
-      const response = await fetch('/api/admin/extend-trial', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ businessId, days })
-      });
+  try {
+    const response = await fetch('/api/admin/extend-trial', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ businessId, days })
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (data.success) {
-        alert(`✅ Trial extended by ${days} days!`);
-        loadData();
-      } else {
-        alert('❌ ' + data.message);
-      }
-    } catch (error) {
-      alert('Failed to extend trial');
+    if (data.success) {
+      showToast(`Trial extended by ${days} days!`, 'success');
+      loadData();
+    } else {
+      showToast(data.message, 'error');
     }
+  } catch (error) {
+    showToast('Failed to extend trial', 'error');
   }
+}
 
   async function suspendBusiness(businessId) {
-    if (!confirm('Suspend this business? They will lose access immediately.')) return;
+  if (!confirm('Suspend this business? They will lose access immediately.')) return;
 
-    try {
-      const response = await fetch('/api/admin/suspend-business', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ businessId })
-      });
+  try {
+    const response = await fetch('/api/admin/suspend-business', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ businessId })
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (data.success) {
-        alert('✅ Business suspended!');
-        loadData();
-      } else {
-        alert('❌ ' + data.message);
-      }
-    } catch (error) {
-      alert('Failed to suspend business');
+    if (data.success) {
+      showToast('Business suspended!', 'success');
+      loadData();
+    } else {
+      showToast(data.message, 'error');
     }
+  } catch (error) {
+    showToast('Failed to suspend business', 'error');
   }
+}
 
   async function reactivateBusiness(businessId) {
-    if (!confirm('Reactivate this business?')) return;
+  if (!confirm('Reactivate this business?')) return;
 
-    try {
-      const response = await fetch('/api/admin/reactivate-business', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ businessId })
-      });
+  try {
+    const response = await fetch('/api/admin/reactivate-business', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ businessId })
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (data.success) {
-        alert('✅ Business reactivated!');
-        loadData();
-      } else {
-        alert('❌ ' + data.message);
-      }
-    } catch (error) {
-      alert('Failed to reactivate business');
+    if (data.success) {
+      showToast('Business reactivated!', 'success');
+      loadData();
+    } else {
+      showToast(data.message, 'error');
     }
+  } catch (error) {
+    showToast('Failed to reactivate business', 'error');
   }
+}
 
   if (loading) {
     return (
       <>
-        <Head><title>Super Admin Dashboard - CarWash Pro Kenya</title></Head>
+        <Head><title>Super Admin Dashboard - CarWash Pro Kenya</title></Head><ToastContainer />
+        
         <div style={{ fontFamily: 'system-ui', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #006633 0%, #004d26 100%)' }}>
           <div style={{ textAlign: 'center', color: 'white' }}>
             <div style={{ fontSize: '4rem', marginBottom: '1rem', animation: 'spin 1s linear infinite' }}>👑</div>
@@ -162,7 +165,7 @@ export default function AdminDashboard() {
               <p style={{ margin: '0.5rem 0 0 0', opacity: 0.9 }}>Martin Kamau • info@natsautomations.co.ke</p>
             </div>
             <div style={{ display: 'flex', gap: '1rem' }}>
-              <button onClick={() => router.push('/')} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Home</button>
+              <button onClick={() => loadData()} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>🔄 Refresh</button>
               <button onClick={() => logout()} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Logout</button>
             </div>
           </div>

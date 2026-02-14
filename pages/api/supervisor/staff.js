@@ -33,7 +33,7 @@ export default async function handler(req, res) {
 
   if (req.method === 'POST') {
     try {
-      const { fullName, phone, pinCode, hourlyRate, businessId } = req.body;
+      const { fullName, phone, pinCode, commission, businessId } = req.body;
 
       if (!businessId) {
         return res.status(400).json({ success: false, message: 'Business ID required' });
@@ -51,11 +51,17 @@ export default async function handler(req, res) {
       const branchId = branches[0].id;
 
       const newStaff = await querySingle(
-        `INSERT INTO staff (branch_id, full_name, phone_number, pin_code, role, hourly_rate, is_active)
+        `INSERT INTO staff (branch_id, full_name, phone_number, pin_code, role, commission_per_car, is_active)
          VALUES ($1, $2, $3, $4, 'washer', $5, true)
          RETURNING *`,
-        [branchId, fullName, phone, pinCode, hourlyRate || 0]
+        [branchId, fullName, phone, pinCode, parseFloat(commission) || 50]
       );
+
+      console.log('=== NEW STAFF ADDED ===');
+      console.log('Name:', fullName);
+      console.log('Phone:', phone);
+      console.log('Commission:', commission);
+      console.log('======================');
 
       return res.status(201).json({ success: true, staff: newStaff });
     } catch (error) {

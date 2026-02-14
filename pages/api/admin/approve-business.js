@@ -44,10 +44,10 @@ export default async function handler(req, res) {
 
     if (existingBranch.length === 0) {
       const branch = await querySingle(
-        `INSERT INTO branches (business_id, branch_name, address, is_active)
-         VALUES ($1, $2, $3, true)
+        `INSERT INTO branches (business_id, branch_name, branch_code, address, is_active)
+         VALUES ($1, $2, $3, $4, true)
          RETURNING id`,
-        [businessId, business.business_name + ' - Main Branch', business.location]
+        [businessId, business.business_name + ' - Main Branch', 'MAIN-' + businessId, business.location || 'Nairobi']
       );
 
       for (let i = 1; i <= 4; i++) {

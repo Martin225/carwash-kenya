@@ -27,7 +27,12 @@ export default function StaffDashboard() {
       
       if (data.success) {
         setJobs(data.jobs || []);
-        setStats(data.stats || stats);
+        const completedJobs = (data.jobs || []).filter(j => j.status === 'completed');
+        setStats({
+          todayJobs: data.jobs.length,
+          completed: completedJobs.length,
+          earnings: completedJobs.length * (user.commission_per_car || 50)
+        });
       }
     } catch (error) {
       console.error('Error:', error);
@@ -56,26 +61,23 @@ export default function StaffDashboard() {
     }
   }
 
+  if (loading) {
+    return (
+      <>
+        <Head><title>Staff Dashboard - CarWash Pro Kenya</title></Head>
+        <div style={{ fontFamily: 'system-ui', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #006633 0%, #004d26 100%)' }}>
+          <div style={{ textAlign: 'center', color: 'white' }}>
+            <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>⏳</div>
+            <p style={{ fontSize: '1.2rem' }}>Loading your jobs...</p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <Head><title>Staff Dashboard - CarWash Pro Kenya</title></Head>
-     if (loading) {
-  return (
-    <div style={{ fontFamily: 'system-ui', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #006633 0%, #004d26 100%)' }}>
-      <div style={{ textAlign: 'center', color: 'white' }}>
-        <div style={{ fontSize: '4rem', marginBottom: '1rem', animation: 'spin 1s linear infinite' }}>🔧</div>
-        <h2 style={{ margin: 0, fontSize: '1.5rem' }}>Loading Your Jobs...</h2>
-        <p style={{ opacity: 0.8, marginTop: '0.5rem' }}>Please wait</p>
-        <style>{`
-          @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
-      </div>
-    </div>
-  );
-}
 
       <div style={{ fontFamily: 'system-ui', minHeight: '100vh', background: '#f5f5f5', paddingBottom: '2rem' }}>
         <div style={{ background: 'linear-gradient(135deg, #006633 0%, #004d26 100%)', color: 'white', padding: '1rem', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
@@ -109,9 +111,7 @@ export default function StaffDashboard() {
           <div>
             <h2 style={{ margin: '0 0 1rem 0', color: '#006633', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>📋 Assigned Jobs ({jobs.length})</h2>
 
-            {loading ? (
-              <div style={{ textAlign: 'center', padding: '3rem', color: '#999' }}>Loading jobs...</div>
-            ) : jobs.length === 0 ? (
+            {jobs.length === 0 ? (
               <div style={{ background: 'white', padding: '3rem 1rem', borderRadius: '12px', textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
                 <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>😊</div>
                 <p style={{ color: '#999', margin: 0 }}>No jobs assigned yet</p>

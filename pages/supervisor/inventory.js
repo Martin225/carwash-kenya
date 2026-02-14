@@ -85,42 +85,7 @@ export default function SupervisorInventory() {
       showToast('Failed to add item', 'error');
     }
   }
-if (!inventory) {
-  return (
-    <div style={{ fontFamily: 'system-ui', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f5' }}>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: '4rem', marginBottom: '1rem', animation: 'spin 1s linear infinite' }}>📦</div>
-        <h2 style={{ margin: 0, fontSize: '1.5rem', color: '#006633' }}>Loading Inventory...</h2>
-        <style>{`
-          @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
-      </div>
-    </div>
-  );
-}
-```
 
-**Save and close**
-
----
-
-## 🎨 **VISUAL EXAMPLE:**
-
-**Before (❌):**
-```
-[Blank white screen]
-...2 seconds later...
-[Dashboard appears]
-```
-
-**After (✅):**
-```
-[Loading Dashboard... ⏳ (spinning)]
-...data loads...
-[Dashboard appears smoothly]
   return (
     <>
       <Head><title>Inventory - CarWash Pro Kenya</title></Head>
@@ -178,7 +143,6 @@ if (!inventory) {
         </div>
       </div>
 
-      {/* Add New Item Modal */}
       {showAddItem && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }} onClick={() => setShowAddItem(false)}>
           <div style={{ background: 'white', padding: '2rem', borderRadius: '20px', maxWidth: '500px', width: '100%' }} onClick={(e) => e.stopPropagation()}>
@@ -236,7 +200,6 @@ if (!inventory) {
         </div>
       )}
 
-      {/* Update Stock Modal */}
       {showUpdate && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }} onClick={() => setShowUpdate(false)}>
           <div style={{ background: 'white', padding: '2rem', borderRadius: '20px', maxWidth: '500px', width: '100%' }} onClick={(e) => e.stopPropagation()}>

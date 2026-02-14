@@ -3,10 +3,10 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { useAuth } from '../lib/auth-context';
 
-export default function LoginPage() {
+export default function StaffLoginPage() {
   const router = useRouter();
   const { login } = useAuth();
-  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [formData, setFormData] = useState({ phone: '', pin: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -16,7 +16,7 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch('/api/auth/staff-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -26,16 +26,7 @@ export default function LoginPage() {
 
       if (data.success) {
         login(data.user);
-        
-        if (data.user.role === 'super_admin') {
-          router.push('/admin/dashboard');
-        } else if (data.user.role === 'owner') {
-          router.push('/owner/dashboard');
-        } else if (data.user.role === 'supervisor') {
-          router.push('/supervisor/dashboard');
-        } else if (data.user.role === 'staff') {
-          router.push('/staff/dashboard');
-        }
+        router.push('/staff/dashboard');
       } else {
         setError(data.message || 'Login failed');
       }
@@ -49,7 +40,7 @@ export default function LoginPage() {
   return (
     <>
       <Head>
-        <title>Login - CarWash Pro Kenya</title>
+        <title>Staff Login - CarWash Pro Kenya</title>
       </Head>
 
       <div style={{ minHeight: '100vh', display: 'flex', background: 'linear-gradient(135deg, #006633 0%, #004d26 100%)', fontFamily: 'system-ui', position: 'relative' }}>
@@ -63,9 +54,9 @@ export default function LoginPage() {
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
           <div style={{ background: 'white', padding: '3rem', borderRadius: '20px', maxWidth: '450px', width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
             <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🚗</div>
-              <h1 style={{ color: '#006633', marginBottom: '0.5rem' }}>Welcome Back</h1>
-              <p style={{ color: '#666' }}>Login to CarWash Pro Kenya</p>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🧑‍🔧</div>
+              <h1 style={{ color: '#006633', marginBottom: '0.5rem' }}>Staff Login</h1>
+              <p style={{ color: '#666' }}>Enter your phone and PIN</p>
             </div>
 
             {error && (
@@ -76,13 +67,13 @@ export default function LoginPage() {
 
             <form onSubmit={handleLogin}>
               <div style={{ marginBottom: '1.5rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Email Address</label>
-                <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required placeholder="you@example.com" style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} />
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Phone Number</label>
+                <input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} required placeholder="0722XXXXXX" style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} />
               </div>
 
               <div style={{ marginBottom: '1.5rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Password</label>
-                <input type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} required placeholder="••••••••" style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} />
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>4-Digit PIN</label>
+                <input type="password" value={formData.pin} onChange={(e) => setFormData({ ...formData, pin: e.target.value })} required placeholder="••••" maxLength="4" pattern="[0-9]{4}" style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1.5rem', boxSizing: 'border-box', textAlign: 'center', letterSpacing: '0.5rem' }} />
               </div>
 
               <button type="submit" disabled={loading} style={{ width: '100%', padding: '1rem', background: loading ? '#ccc' : '#006633', color: 'white', border: 'none', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold', cursor: loading ? 'not-allowed' : 'pointer', marginBottom: '1rem' }}>
@@ -90,19 +81,17 @@ export default function LoginPage() {
               </button>
             </form>
 
-            <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
-              <a href="/forgot-password" style={{ color: '#006633', textDecoration: 'none', fontSize: '0.95rem', fontWeight: '500' }}>Forgot your password?</a>
-            </div>
-
             <div style={{ textAlign: 'center', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #e0e0e0' }}>
-              <p style={{ color: '#666', margin: 0 }}>Don't have an account? <a href="/signup" style={{ color: '#006633', fontWeight: 'bold', textDecoration: 'none' }}>Start Free Trial</a></p>
+              <p style={{ color: '#666', margin: 0, fontSize: '0.9rem' }}>
+                Forgot your PIN? Contact your supervisor
+              </p>
             </div>
 
             <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-              <p style={{ fontSize: '0.9rem', color: '#888', margin: 0 }}>
-                Staff member?{' '}
-                <a href="/staff-login" style={{ color: '#006633', textDecoration: 'none', fontWeight: 'bold' }}>
-                  Login with PIN
+              <p style={{ color: '#666', margin: 0, fontSize: '0.9rem' }}>
+                Not a staff member?{' '}
+                <a href="/login" style={{ color: '#006633', fontWeight: 'bold', textDecoration: 'none' }}>
+                  Regular Login
                 </a>
               </p>
             </div>

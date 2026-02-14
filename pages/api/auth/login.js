@@ -1,4 +1,4 @@
-import { query } from '../../../lib/db';
+import { querySingle } from '../../../lib/db';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -8,71 +8,78 @@ export default async function handler(req, res) {
   try {
     const { email, password } = req.body;
 
-    // Get user with business details
-    const user = await query(
-      `SELECT u.*, b.business_name, b.subscription_status, b.trial_ends_at, b.is_active as business_active
-       FROM users u
-       LEFT JOIN businesses b ON u.business_id = b.id
-       WHERE u.email = $1`,
-      [email]
+    const user = await querySingle(
+      'SELECT * FROM users WHERE email = $1 AND password_hash = $2',
+      [email, password]
     );
 
-    if (!user || user.length === 0) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid email or password' 
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password'
       });
     }
 
-    const userData = user[0];
-
-    // Check if account is active
-    if (!userData.is_active) {
+    if (!user.is_active) {
       return res.status(403).json({
         success: false,
-        message: 'Your account is pending approval. Please wait for admin confirmation.'
+        message: 'Your account is inactive. Please contact support.'
       });
     }
 
-    if (!userData.business_active) {
-      return res.status(403).json({
-        success: false,
-        message: 'Your business account is not active. Please contact support.'
-      });
+    // Get business details
+    let business = null;
+    if (user.business_id) {
+      business = await querySingle(
+        'SELECT * FROM businesses WHERE id = $1',
+        [user.business_id]
+      );
+
+      // Check subscription expiry (except for super admin)
+      if (business && user.role !== 'super_admin') {
+        if (business.trial_ends_at) {
+          const trialEnd = new Date(business.trial_ends_at);
+          const today = new Date();
+          
+          if (today > trialEnd && business.subscription_status !== 'active') {
+            return res.status(403).json({
+              success: false,
+              message: '⛔ Your subscription has expired. Please renew to continue.\n\nContact: +254 726 259 977\nEmail: info@natsautomations.co.ke'
+            });
+          }
+        }
+      }
     }
 
-    // Check password (for demo, simple comparison)
-    // TODO: Use bcrypt in production: await bcrypt.compare(password, userData.password_hash)
-    if (userData.password_hash !== password) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid email or password' 
-      });
-    }
+    // Build user response
+    const userData = {
+      id: user.id,
+      full_name: user.full_name,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      business_id: user.business_id,
+      branch_id: user.branch_id,
+      business_name: business?.business_name,
+      trial_ends_at: business?.trial_ends_at,
+      subscription_status: business?.subscription_status
+    };
 
-    // Update last login
-    await query(
-      'UPDATE users SET last_login = NOW() WHERE id = $1',
-      [userData.id]
-    );
+    console.log('=== LOGIN SUCCESS ===');
+    console.log('User:', user.full_name);
+    console.log('Role:', user.role);
+    console.log('Business:', business?.business_name);
+    console.log('====================');
 
     return res.status(200).json({
       success: true,
-      user: {
-        id: userData.id,
-        full_name: userData.full_name,
-        email: userData.email,
-        role: userData.role,
-        business_id: userData.business_id,
-        business_name: userData.business_name,
-        subscription_status: userData.subscription_status
-      }
+      user: userData
     });
   } catch (error) {
     console.error('Login error:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Server error' 
+    return res.status(500).json({
+      success: false,
+      message: 'Login failed. Please try again.'
     });
   }
 }
