@@ -2,13 +2,16 @@ import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../lib/auth-context';
-import { useToast } from '../../components/Toast';  // ADD THIS LINE
+import { useToast } from '../../components/Toast';
 
 export default function OwnerDashboard() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const { showToast, ToastContainer } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
+  const [showPayment, setShowPayment] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({ phoneNumber: '', amount: 2000 });
+  const [paymentLoading, setPaymentLoading] = useState(false);
   const [stats, setStats] = useState({
     totalRevenue: 0,
     todayRevenue: 0,
@@ -129,21 +132,21 @@ export default function OwnerDashboard() {
 
       const data = await response.json();
       if (data.success) {
-showToast('Supervisor added successfully!', 'success');        setShowAddSupervisor(false);
+        showToast('Supervisor added successfully!', 'success');
+        setShowAddSupervisor(false);
         setSupervisorForm({ fullName: '', email: '', phone: '', password: '', branchId: '' });
         loadSupervisors();
       } else {
         showToast(data.message, 'error');
       }
     } catch (error) {
-      showToast(`Supervisor ${action}d successfully!`, 'success');
+      showToast('Failed to add supervisor', 'error');
     }
   }
 
   async function toggleSupervisor(supervisorId, currentStatus) {
     const action = currentStatus ? 'deactivate' : 'activate';
-    if (!confirm(`Are you sure you want to ${action} this supervisor?`)) return;
-
+    
     try {
       const response = await fetch('/api/owner/supervisors', {
         method: 'PUT',
@@ -153,12 +156,78 @@ showToast('Supervisor added successfully!', 'success');        setShowAddSupervi
 
       const data = await response.json();
       if (data.success) {
-        alert(`✅ Supervisor ${action}d successfully!`);
+        showToast(`Supervisor ${action}d successfully!`, 'success');
         loadSupervisors();
+      } else {
+        showToast(data.message, 'error');
       }
     } catch (error) {
-      alert('Failed to update supervisor');
+      showToast('Failed to update supervisor', 'error');
     }
+  }
+
+  async function handlePayment(e) {
+    e.preventDefault();
+    setPaymentLoading(true);
+
+    try {
+      const response = await fetch('/api/mpesa/initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          businessId: user.business_id,
+          userId: user.id,
+          phoneNumber: paymentForm.phoneNumber,
+          amount: paymentForm.amount,
+          paymentType: 'subscription'
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        showToast('Payment request sent! Check your phone for M-Pesa prompt.', 'success');
+        setShowPayment(false);
+        
+        // Poll for payment status
+        const paymentId = data.data.paymentId;
+        pollPaymentStatus(paymentId);
+      } else {
+        showToast(data.message || 'Payment failed', 'error');
+      }
+    } catch (error) {
+      showToast('Network error. Please try again.', 'error');
+    } finally {
+      setPaymentLoading(false);
+    }
+  }
+
+  async function pollPaymentStatus(paymentId) {
+    let attempts = 0;
+    const maxAttempts = 30;
+
+    const interval = setInterval(async () => {
+      attempts++;
+
+      try {
+        const response = await fetch(`/api/mpesa/check-status?paymentId=${paymentId}`);
+        const data = await response.json();
+
+        if (data.success && data.payment.status === 'completed') {
+          clearInterval(interval);
+          showToast('Payment successful! Subscription activated.', 'success');
+          setTimeout(() => window.location.reload(), 2000);
+        } else if (data.success && data.payment.status === 'failed') {
+          clearInterval(interval);
+          showToast('Payment failed. Please try again.', 'error');
+        } else if (attempts >= maxAttempts) {
+          clearInterval(interval);
+          showToast('Payment is processing. Please check back in a moment.', 'info');
+        }
+      } catch (error) {
+        console.error('Status check error:', error);
+      }
+    }, 1000);
   }
 
   return (
@@ -166,7 +235,7 @@ showToast('Supervisor added successfully!', 'success');        setShowAddSupervi
       <Head>
         <title>Owner Dashboard - CarWash Pro Kenya</title>
       </Head>
-<ToastContainer />
+      <ToastContainer />
 
       <style>{`
         @keyframes pulse {
@@ -184,7 +253,7 @@ showToast('Supervisor added successfully!', 'success');        setShowAddSupervi
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
               <h1 style={{ margin: 0, fontSize: '1.8rem' }}>👔 {user?.full_name ? `${user.full_name}'s Dashboard` : 'Owner Dashboard'}</h1>
-<p style={{ margin: '0.5rem 0 0 0', opacity: 0.9 }}>{user?.business_name || 'Loading...'}</p>
+              <p style={{ margin: '0.5rem 0 0 0', opacity: 0.9 }}>{user?.business_name || 'Loading...'}</p>
             </div>
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               <button onClick={() => setActiveTab('overview')} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Dashboard</button>
@@ -199,7 +268,7 @@ showToast('Supervisor added successfully!', 'success');        setShowAddSupervi
               background: subscriptionAlert.type === 'expired' ? '#d32f2f' : 
                           subscriptionAlert.type === 'urgent' ? '#f57c00' : 
                           subscriptionAlert.type === 'warning' ? '#ffc107' : '#2196f3',
-              color: subscriptionAlert.type === 'info' ? '#1565c0' : 'white',
+              color: subscriptionAlert.type === 'info' || subscriptionAlert.type === 'warning' ? '#1565c0' : 'white',
               padding: '1.5rem',
               borderRadius: '12px',
               marginBottom: '1.5rem',
@@ -221,24 +290,22 @@ showToast('Supervisor added successfully!', 'success');        setShowAddSupervi
                   </div>
                 )}
               </div>
-              {subscriptionAlert.type !== 'expired' && (
-                <button 
-                  onClick={() => alert('Contact us to renew:\n\nPhone: +254 726 259 977\nEmail: info@natsautomations.co.ke\n\nM-Pesa Paybill: Coming Soon')}
-                  style={{ 
-                    background: 'white', 
-                    color: subscriptionAlert.type === 'urgent' ? '#f57c00' : '#006633',
-                    border: 'none', 
-                    padding: '0.75rem 1.5rem', 
-                    borderRadius: '8px', 
-                    cursor: 'pointer', 
-                    fontWeight: 'bold',
-                    fontSize: '1rem',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  💳 Renew Now
-                </button>
-              )}
+              <button 
+                onClick={() => setShowPayment(true)}
+                style={{ 
+                  background: 'white', 
+                  color: subscriptionAlert.type === 'expired' ? '#d32f2f' : subscriptionAlert.type === 'urgent' ? '#f57c00' : '#006633',
+                  border: 'none', 
+                  padding: '0.75rem 1.5rem', 
+                  borderRadius: '8px', 
+                  cursor: 'pointer', 
+                  fontWeight: 'bold',
+                  fontSize: '1rem',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                💳 Pay Now - Kshs 2,000
+              </button>
             </div>
           )}
 
@@ -276,7 +343,6 @@ showToast('Supervisor added successfully!', 'success');        setShowAddSupervi
                 <div style={{ textAlign: 'center', padding: '4rem', color: '#999' }}>
                   <div style={{ fontSize: '4rem', marginBottom: '1rem', animation: 'spin 1s linear infinite' }}>⏳</div>
                   <p style={{ fontSize: '1.1rem', fontWeight: '500' }}>Loading transactions...</p>
-                  <p style={{ fontSize: '0.9rem', color: '#aaa', marginTop: '0.5rem' }}>Please wait a moment</p>
                 </div>
               ) : transactions.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '4rem' }}>
@@ -336,7 +402,7 @@ showToast('Supervisor added successfully!', 'success');        setShowAddSupervi
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
                   {inventory.map((item) => (
-                    <div key={item.id} style={{ background: 'white', border: '2px solid #e0e0e0', padding: '1.5rem', borderRadius: '12px', borderLeft: `4px solid ${item.current_stock <= item.reorder_level ? '#f44336' : '#4caf50'}`, transition: 'transform 0.2s, box-shadow 0.2s' }} onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)'; }} onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}>
+                    <div key={item.id} style={{ background: 'white', border: '2px solid #e0e0e0', padding: '1.5rem', borderRadius: '12px', borderLeft: `4px solid ${item.current_stock <= item.reorder_level ? '#f44336' : '#4caf50'}` }}>
                       <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem' }}>{item.item_name}</h3>
                       <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.75rem' }}>
                         <span style={{ background: '#f0f0f0', padding: '0.25rem 0.5rem', borderRadius: '4px' }}>{item.category}</span>
@@ -440,6 +506,59 @@ showToast('Supervisor added successfully!', 'success');        setShowAddSupervi
               <input type="password" placeholder="Temporary Password *" value={supervisorForm.password} onChange={(e) => setSupervisorForm({ ...supervisorForm, password: e.target.value })} required style={{ width: '100%', padding: '0.75rem', marginBottom: '1.5rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} />
               <button type="submit" style={{ width: '100%', padding: '1rem', background: '#006633', color: 'white', border: 'none', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', marginBottom: '0.5rem' }}>Add Supervisor</button>
               <button type="button" onClick={() => setShowAddSupervisor(false)} style={{ width: '100%', padding: '0.75rem', background: '#f0f0f0', color: '#666', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Cancel</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showPayment && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }} onClick={() => !paymentLoading && setShowPayment(false)}>
+          <div style={{ background: 'white', padding: '2rem', borderRadius: '20px', maxWidth: '500px', width: '100%' }} onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ color: '#006633', marginBottom: '0.5rem' }}>💳 Pay Subscription</h2>
+            <p style={{ color: '#666', marginBottom: '1.5rem' }}>Pay Kshs 2,000 for 30 days subscription</p>
+            
+            <form onSubmit={handlePayment}>
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>M-Pesa Phone Number *</label>
+                <input 
+                  type="tel" 
+                  value={paymentForm.phoneNumber} 
+                  onChange={(e) => setPaymentForm({ ...paymentForm, phoneNumber: e.target.value })} 
+                  required 
+                  placeholder="0722123456 or 254722123456" 
+                  pattern="(0|254)?[17][0-9]{8}"
+                  style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} 
+                />
+                <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.25rem' }}>
+                  📱 You'll receive an M-Pesa prompt on this number
+                </div>
+              </div>
+
+              <div style={{ background: '#e8f5e9', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
+                <div style={{ fontWeight: 'bold', color: '#2e7d32', marginBottom: '0.5rem' }}>What happens next?</div>
+                <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                  1️⃣ Enter your M-Pesa PIN on your phone<br/>
+                  2️⃣ Payment confirmed automatically<br/>
+                  3️⃣ Subscription activated for 30 days!
+                </div>
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={paymentLoading}
+                style={{ width: '100%', background: paymentLoading ? '#ccc' : '#006633', color: 'white', border: 'none', padding: '1rem', borderRadius: '8px', cursor: paymentLoading ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '1rem', marginBottom: '0.5rem' }}
+              >
+                {paymentLoading ? '⏳ Processing...' : '💳 Pay Kshs 2,000'}
+              </button>
+
+              <button 
+                type="button" 
+                onClick={() => setShowPayment(false)} 
+                disabled={paymentLoading}
+                style={{ width: '100%', background: '#f0f0f0', color: '#666', border: 'none', padding: '0.75rem', borderRadius: '8px', cursor: paymentLoading ? 'not-allowed' : 'pointer' }}
+              >
+                Cancel
+              </button>
             </form>
           </div>
         </div>

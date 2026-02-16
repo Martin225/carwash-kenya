@@ -9,7 +9,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.95.3",
     "@vercel/postgres": "^0.10.0",
-    "axios": "^1.6.0",
+    "axios": "^1.13.5",
     "bcryptjs": "^3.0.3",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.563.0",
