@@ -123,69 +123,63 @@ export default async function handler(req, res) {
       console.log('New customer created:', customer.id);
     }
 
-    // Find vehicle by registration number FIRST (regardless of customer)
+// Find or create vehicle (ONLY if vehicle type is not "none")
     let vehicle = null;
     
-    try {
-      vehicle = await querySingle(
-        'SELECT * FROM vehicles WHERE registration_number = $1',
-        [vehicleReg]
-      );
-      
-      if (vehicle) {
-        console.log('Found existing vehicle:', vehicle.id, 'Owner customer_id:', vehicle.customer_id);
-        
-        // Check if vehicle belongs to this customer
-        if (vehicle.customer_id !== customer.id) {
-          console.log('WARNING: Vehicle belongs to different customer!');
-          console.log('Vehicle owner:', vehicle.customer_id, 'Current customer:', customer.id);
-          
-          // Transfer vehicle to current customer (handles phone number changes)
-          await query(
-            'UPDATE vehicles SET customer_id = $1 WHERE id = $2',
-            [customer.id, vehicle.id]
-          );
-          
-          console.log('Vehicle ownership transferred to customer:', customer.id);
-        } else {
-          console.log('Vehicle already belongs to this customer - perfect!');
-        }
-      }
-    } catch (vehicleLookupError) {
-      console.log('Vehicle lookup failed:', vehicleLookupError.message);
-      vehicle = null;
-    }
-
-    // Create vehicle if it doesn't exist
-    if (!vehicle) {
-      console.log('Creating new vehicle...');
+    if (vehicleType !== 'none' && vehicleReg) {
       try {
-        vehicle = await querySingle(
-          'INSERT INTO vehicles (customer_id, registration_number, vehicle_type, model, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING *',
-          [customer.id, vehicleReg, vehicleType || 'sedan', vehicleType || 'Not specified']
-        );
-        console.log('New vehicle created:', vehicle.id, 'for customer:', customer.id);
-      } catch (insertError) {
-        // Last resort: if insert fails, try to find ANY vehicle with this reg number
-        console.log('Vehicle insert failed, fetching existing vehicle...', insertError.message);
         vehicle = await querySingle(
           'SELECT * FROM vehicles WHERE registration_number = $1',
           [vehicleReg]
         );
         
         if (vehicle) {
-          console.log('Using existing vehicle:', vehicle.id);
-          // Update to current customer
-          await query(
-            'UPDATE vehicles SET customer_id = $1 WHERE id = $2',
-            [customer.id, vehicle.id]
+          console.log('Found existing vehicle:', vehicle.id, 'Owner customer_id:', vehicle.customer_id);
+          
+          if (vehicle.customer_id !== customer.id) {
+            console.log('WARNING: Vehicle belongs to different customer!');
+            await query(
+              'UPDATE vehicles SET customer_id = $1 WHERE id = $2',
+              [customer.id, vehicle.id]
+            );
+            console.log('Vehicle ownership transferred to customer:', customer.id);
+          }
+        }
+      } catch (vehicleLookupError) {
+        console.log('Vehicle lookup failed:', vehicleLookupError.message);
+        vehicle = null;
+      }
+
+      // Create vehicle if it doesn't exist
+      if (!vehicle) {
+        console.log('Creating new vehicle...');
+        try {
+          vehicle = await querySingle(
+            'INSERT INTO vehicles (customer_id, registration_number, vehicle_type, model, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING *',
+            [customer.id, vehicleReg, vehicleType, vehicleType || 'Not specified']
           );
-        } else {
-          throw new Error('Failed to create or find vehicle');
+          console.log('New vehicle created:', vehicle.id, 'for customer:', customer.id);
+        } catch (insertError) {
+          console.log('Vehicle insert failed, fetching existing vehicle...', insertError.message);
+          vehicle = await querySingle(
+            'SELECT * FROM vehicles WHERE registration_number = $1',
+            [vehicleReg]
+          );
+          
+          if (vehicle) {
+            console.log('Using existing vehicle:', vehicle.id);
+            await query(
+              'UPDATE vehicles SET customer_id = $1 WHERE id = $2',
+              [customer.id, vehicle.id]
+            );
+          } else {
+            throw new Error('Failed to create or find vehicle');
+          }
         }
       }
+    } else {
+      console.log('No vehicle required - service only booking');
     }
-
     // Get service pricing
     let pricing;
     try {
@@ -220,58 +214,61 @@ export default async function handler(req, res) {
     const queueNumber = (parseInt(todayCount[0]?.count) || 0) + 1;
     console.log('Queue number:', queueNumber);
 
-    // Create booking - handle optional bayId and staffId properly
+// Create booking - handle optional vehicle
     let bookingSql = '';
     let bookingParams = [];
     
     if (bayId && staffId) {
-      // Both bay and staff provided
       bookingSql = `INSERT INTO bookings (
-        branch_id, customer_id, vehicle_id, service_id,
+        branch_id, customer_id, ${vehicle ? 'vehicle_id,' : ''} service_id,
         booking_date, booking_time,
         total_amount, final_amount,
         status, payment_status, booking_source,
         bay_id, assigned_staff_id, created_at
-      ) VALUES ($1, $2, $3, $4, NOW(), NOW(), $5, $6, 'pending', 'unpaid', 'walkin', $7, $8, NOW())
+      ) VALUES ($1, $2, ${vehicle ? '$3, $4' : '$3'}, NOW(), NOW(), ${vehicle ? '$5, $6' : '$4, $5'}, 'pending', 'unpaid', 'walkin', ${vehicle ? '$7, $8' : '$6, $7'}, NOW())
       RETURNING *`;
-      bookingParams = [branchId, customer.id, vehicle.id, serviceId, finalAmount, finalAmount, bayId, staffId];
+      bookingParams = vehicle 
+        ? [branchId, customer.id, vehicle.id, serviceId, finalAmount, finalAmount, bayId, staffId]
+        : [branchId, customer.id, serviceId, finalAmount, finalAmount, bayId, staffId];
     } else if (bayId && !staffId) {
-      // Only bay provided
       bookingSql = `INSERT INTO bookings (
-        branch_id, customer_id, vehicle_id, service_id,
+        branch_id, customer_id, ${vehicle ? 'vehicle_id,' : ''} service_id,
         booking_date, booking_time,
         total_amount, final_amount,
         status, payment_status, booking_source,
         bay_id, created_at
-      ) VALUES ($1, $2, $3, $4, NOW(), NOW(), $5, $6, 'pending', 'unpaid', 'walkin', $7, NOW())
+      ) VALUES ($1, $2, ${vehicle ? '$3, $4' : '$3'}, NOW(), NOW(), ${vehicle ? '$5, $6' : '$4, $5'}, 'pending', 'unpaid', 'walkin', ${vehicle ? '$7' : '$6'}, NOW())
       RETURNING *`;
-      bookingParams = [branchId, customer.id, vehicle.id, serviceId, finalAmount, finalAmount, bayId];
+      bookingParams = vehicle
+        ? [branchId, customer.id, vehicle.id, serviceId, finalAmount, finalAmount, bayId]
+        : [branchId, customer.id, serviceId, finalAmount, finalAmount, bayId];
     } else if (!bayId && staffId) {
-      // Only staff provided
       bookingSql = `INSERT INTO bookings (
-        branch_id, customer_id, vehicle_id, service_id,
+        branch_id, customer_id, ${vehicle ? 'vehicle_id,' : ''} service_id,
         booking_date, booking_time,
         total_amount, final_amount,
         status, payment_status, booking_source,
         assigned_staff_id, created_at
-      ) VALUES ($1, $2, $3, $4, NOW(), NOW(), $5, $6, 'pending', 'unpaid', 'walkin', $7, NOW())
+      ) VALUES ($1, $2, ${vehicle ? '$3, $4' : '$3'}, NOW(), NOW(), ${vehicle ? '$5, $6' : '$4, $5'}, 'pending', 'unpaid', 'walkin', ${vehicle ? '$7' : '$6'}, NOW())
       RETURNING *`;
-      bookingParams = [branchId, customer.id, vehicle.id, serviceId, finalAmount, finalAmount, staffId];
+      bookingParams = vehicle
+        ? [branchId, customer.id, vehicle.id, serviceId, finalAmount, finalAmount, staffId]
+        : [branchId, customer.id, serviceId, finalAmount, finalAmount, staffId];
     } else {
-      // Neither bay nor staff provided (queued only)
       bookingSql = `INSERT INTO bookings (
-        branch_id, customer_id, vehicle_id, service_id,
+        branch_id, customer_id, ${vehicle ? 'vehicle_id,' : ''} service_id,
         booking_date, booking_time,
         total_amount, final_amount,
         status, payment_status, booking_source, created_at
-      ) VALUES ($1, $2, $3, $4, NOW(), NOW(), $5, $6, 'pending', 'unpaid', 'walkin', NOW())
+      ) VALUES ($1, $2, ${vehicle ? '$3, $4' : '$3'}, NOW(), NOW(), ${vehicle ? '$5, $6' : '$4, $5'}, 'pending', 'unpaid', 'walkin', NOW())
       RETURNING *`;
-      bookingParams = [branchId, customer.id, vehicle.id, serviceId, finalAmount, finalAmount];
+      bookingParams = vehicle
+        ? [branchId, customer.id, vehicle.id, serviceId, finalAmount, finalAmount]
+        : [branchId, customer.id, serviceId, finalAmount, finalAmount];
     }
 
     const booking = await querySingle(bookingSql, bookingParams);
-    console.log('Booking created:', booking.id);
-
+    console.log('Booking created:', booking.id, 'Vehicle:', vehicle ? vehicle.id : 'None');
     // Update bay status if bay provided
     if (bayId) {
       try {

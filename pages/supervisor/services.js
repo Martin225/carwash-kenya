@@ -13,16 +13,16 @@ export default function ServiceManagement() {
   const [showAddService, setShowAddService] = useState(false);
   const [editingService, setEditingService] = useState(null);
   const [serviceForm, setServiceForm] = useState({
-    serviceName: '',
-    description: '',
-    basePrice: '',
-    pricing: {
-      sedan: '',
-      suv: '',
-      truck: '',
-      matatu: ''
-    }
-  });
+  serviceName: '',
+  description: '',
+  pricing: {
+    none: '',
+    sedan: '',
+    suv: '',
+    truck: '',
+    matatu: ''
+  }
+});
 
   useEffect(() => {
     if (user && user.business_id) {
@@ -71,7 +71,6 @@ export default function ServiceManagement() {
         setServiceForm({
           serviceName: '',
           description: '',
-          basePrice: '',
           pricing: { sedan: '', suv: '', truck: '', matatu: '' }
         });
         loadServices();
@@ -88,12 +87,11 @@ export default function ServiceManagement() {
     setServiceForm({
       serviceName: service.name,
       description: service.description || '',
-      basePrice: service.basePrice,
       pricing: {
-        sedan: service.pricing?.sedan || service.basePrice,
-        suv: service.pricing?.suv || service.basePrice,
-        truck: service.pricing?.truck || service.basePrice,
-        matatu: service.pricing?.matatu || service.basePrice
+        sedan: service.pricing?.sedan || '',
+        suv: service.pricing?.suv || '',
+        truck: service.pricing?.truck || '',
+        matatu: service.pricing?.matatu || ''
       }
     });
     setShowAddService(true);
@@ -108,8 +106,7 @@ export default function ServiceManagement() {
           serviceId, 
           isActive: !currentStatus,
           serviceName: services.find(s => s.id === serviceId).name,
-          description: services.find(s => s.id === serviceId).description,
-          basePrice: services.find(s => s.id === serviceId).basePrice
+          description: services.find(s => s.id === serviceId).description
         })
       });
 
@@ -165,7 +162,11 @@ export default function ServiceManagement() {
               <h2 style={{ margin: 0, color: '#006633' }}>🚗 Your Services</h2>
               <button onClick={() => {
                 setEditingService(null);
-                setServiceForm({ serviceName: '', description: '', basePrice: '', pricing: { sedan: '', suv: '', truck: '', matatu: '' } });
+                setServiceForm({ 
+                  serviceName: '', 
+                  description: '', 
+                  pricing: { sedan: '', suv: '', truck: '', matatu: '' } 
+                });
                 setShowAddService(true);
               }} style={{ background: '#006633', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                 + Add Service
@@ -200,16 +201,16 @@ export default function ServiceManagement() {
                           <div style={{ fontSize: '0.85rem', color: '#666' }}>{service.description || 'No description'}</div>
                         </td>
                         <td style={{ padding: '1rem', textAlign: 'center', fontWeight: '500' }}>
-                          Kshs {(service.pricing?.sedan || service.basePrice)?.toLocaleString()}
+                          Kshs {(service.pricing?.sedan || 0)?.toLocaleString()}
                         </td>
                         <td style={{ padding: '1rem', textAlign: 'center', fontWeight: '500' }}>
-                          Kshs {(service.pricing?.suv || service.basePrice)?.toLocaleString()}
+                          Kshs {(service.pricing?.suv || 0)?.toLocaleString()}
                         </td>
                         <td style={{ padding: '1rem', textAlign: 'center', fontWeight: '500' }}>
-                          Kshs {(service.pricing?.truck || service.basePrice)?.toLocaleString()}
+                          Kshs {(service.pricing?.truck || 0)?.toLocaleString()}
                         </td>
                         <td style={{ padding: '1rem', textAlign: 'center', fontWeight: '500' }}>
-                          Kshs {(service.pricing?.matatu || service.basePrice)?.toLocaleString()}
+                          Kshs {(service.pricing?.matatu || 0)?.toLocaleString()}
                         </td>
                         <td style={{ padding: '1rem', textAlign: 'center' }}>
                           <span style={{ padding: '0.35rem 0.75rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: '600', background: service.isActive ? '#e8f5e9' : '#ffebee', color: service.isActive ? '#2e7d32' : '#c62828' }}>
@@ -251,12 +252,12 @@ export default function ServiceManagement() {
                   value={serviceForm.serviceName} 
                   onChange={(e) => setServiceForm({ ...serviceForm, serviceName: e.target.value })} 
                   required 
-                  placeholder="e.g., Premium Wash, Full Detailing" 
+                  placeholder="e.g., Premium Wash, Full Detailing, Carpet Cleaning" 
                   style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} 
                 />
               </div>
 
-              <div style={{ marginBottom: '1rem' }}>
+              <div style={{ marginBottom: '1.5rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Description (Optional)</label>
                 <textarea 
                   value={serviceForm.description} 
@@ -267,45 +268,31 @@ export default function ServiceManagement() {
                 />
               </div>
 
-              <div style={{ marginBottom: '1.5rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Base Price (Kshs) *</label>
-                <input 
-                  type="number" 
-                  value={serviceForm.basePrice} 
-                  onChange={(e) => {
-                    const basePrice = e.target.value;
-                    setServiceForm({ 
-                      ...serviceForm, 
-                      basePrice,
-                      pricing: {
-                        sedan: basePrice,
-                        suv: basePrice,
-                        truck: basePrice,
-                        matatu: basePrice
-                      }
-                    });
-                  }} 
-                  required 
-                  placeholder="500" 
-                  min="0"
-                  style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} 
-                />
-                <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem' }}>
-                  ℹ️ This sets the default price for all vehicle types
-                </div>
-              </div>
-
               <div style={{ background: '#f9f9f9', padding: '1.5rem', borderRadius: '12px', marginBottom: '1.5rem' }}>
-                <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', color: '#006633' }}>💰 Pricing by Vehicle Type</h3>
+                <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', color: '#006633' }}>💰 Pricing by Vehicle Type *</h3>
+                <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1rem' }}>Set prices for each vehicle type. At least one price is required.</p>
                 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', fontSize: '0.9rem' }}>🚗 Sedan</label>
+  <div>
+    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', fontSize: '0.9rem' }}>🏠 None (Walk-in Service)</label>
+    <input 
+      type="number" 
+      value={serviceForm.pricing.none} 
+      onChange={(e) => setServiceForm({ ...serviceForm, pricing: { ...serviceForm.pricing, none: e.target.value } })} 
+      placeholder="e.g., 500" 
+      min="0"
+      style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} 
+    />
+  </div>
+
+  <div>
+    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', fontSize: '0.9rem' }}>🚗 Sedan</label>
+   
                     <input 
                       type="number" 
                       value={serviceForm.pricing.sedan} 
                       onChange={(e) => setServiceForm({ ...serviceForm, pricing: { ...serviceForm.pricing, sedan: e.target.value } })} 
-                      placeholder="500" 
+                      placeholder="e.g., 500" 
                       min="0"
                       style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} 
                     />
@@ -317,7 +304,7 @@ export default function ServiceManagement() {
                       type="number" 
                       value={serviceForm.pricing.suv} 
                       onChange={(e) => setServiceForm({ ...serviceForm, pricing: { ...serviceForm.pricing, suv: e.target.value } })} 
-                      placeholder="700" 
+                      placeholder="e.g., 700" 
                       min="0"
                       style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} 
                     />
@@ -329,7 +316,7 @@ export default function ServiceManagement() {
                       type="number" 
                       value={serviceForm.pricing.truck} 
                       onChange={(e) => setServiceForm({ ...serviceForm, pricing: { ...serviceForm.pricing, truck: e.target.value } })} 
-                      placeholder="1000" 
+                      placeholder="e.g., 1000" 
                       min="0"
                       style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} 
                     />
@@ -341,7 +328,7 @@ export default function ServiceManagement() {
                       type="number" 
                       value={serviceForm.pricing.matatu} 
                       onChange={(e) => setServiceForm({ ...serviceForm, pricing: { ...serviceForm.pricing, matatu: e.target.value } })} 
-                      placeholder="1200" 
+                      placeholder="e.g., 1200" 
                       min="0"
                       style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} 
                     />

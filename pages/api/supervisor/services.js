@@ -99,43 +99,50 @@ export default async function handler(req, res) {
   // POST - Create new service
   if (req.method === 'POST') {
     try {
-      const { serviceName, description, basePrice, pricing } = req.body;
+      const { serviceName, description, pricing } = req.body;
 
-      if (!serviceName || !basePrice) {
+      if (!serviceName) {
         return res.status(400).json({
           success: false,
-          message: 'Service name and base price are required'
+          message: 'Service name is required'
         });
       }
 
-      // Create service
+      // Validate that at least one price is provided
+      if (!pricing || Object.keys(pricing).every(key => !pricing[key])) {
+        return res.status(400).json({
+          success: false,
+          message: 'At least one vehicle type price is required'
+        });
+      }
+
+      // Create service with base_price as 0 (we only use vehicle-specific pricing)
       const service = await querySingle(
         `INSERT INTO services (service_name, description, base_price, is_active, created_at)
-         VALUES ($1, $2, $3, true, NOW())
+         VALUES ($1, $2, 0, true, NOW())
          RETURNING *`,
-        [serviceName, description || '', parseFloat(basePrice)]
+        [serviceName, description || '']
       );
 
       // Create pricing for each vehicle type
-      if (pricing) {
-        const vehicleTypes = ['sedan', 'suv', 'truck', 'matatu'];
-        
-        for (const type of vehicleTypes) {
-          if (pricing[type]) {
-            await query(
-              `INSERT INTO service_pricing (service_id, vehicle_type, base_price)
-               VALUES ($1, $2, $3)
-               ON CONFLICT (service_id, vehicle_type) 
-               DO UPDATE SET base_price = $3`,
-              [service.id, type, parseFloat(pricing[type])]
-            );
-          }
+      const vehicleTypes = ['none', 'sedan', 'suv', 'truck', 'matatu'];
+      
+      for (const type of vehicleTypes) {
+        if (pricing[type] && parseFloat(pricing[type]) > 0) {
+          await query(
+            `INSERT INTO service_pricing (service_id, vehicle_type, base_price)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (service_id, vehicle_type) 
+             DO UPDATE SET base_price = $3`,
+            [service.id, type, parseFloat(pricing[type])]
+          );
         }
       }
 
       console.log('=== SERVICE CREATED ===');
       console.log('Service:', serviceName);
       console.log('ID:', service.id);
+      console.log('Pricing:', pricing);
       console.log('======================');
 
       return res.status(201).json({
@@ -152,10 +159,10 @@ export default async function handler(req, res) {
     }
   }
 
-  // PUT - Update service
+ // PUT - Update service
   if (req.method === 'PUT') {
     try {
-      const { serviceId, serviceName, description, basePrice, pricing, isActive } = req.body;
+      const { serviceId, serviceName, description, pricing, isActive } = req.body;
 
       if (!serviceId) {
         return res.status(400).json({
@@ -164,15 +171,14 @@ export default async function handler(req, res) {
         });
       }
 
-      // Update service
+      // Update service (base_price stays at 0)
       await query(
         `UPDATE services 
          SET service_name = $1, 
              description = $2, 
-             base_price = $3,
-             is_active = $4
-         WHERE id = $5`,
-        [serviceName, description || '', parseFloat(basePrice), isActive !== false, serviceId]
+             is_active = $3
+         WHERE id = $4`,
+        [serviceName, description || '', isActive !== false, serviceId]
       );
 
       // Update pricing for each vehicle type
@@ -180,7 +186,7 @@ export default async function handler(req, res) {
         const vehicleTypes = ['sedan', 'suv', 'truck', 'matatu'];
         
         for (const type of vehicleTypes) {
-          if (pricing[type]) {
+          if (pricing[type] && parseFloat(pricing[type]) > 0) {
             await query(
               `INSERT INTO service_pricing (service_id, vehicle_type, base_price)
                VALUES ($1, $2, $3)

@@ -11,6 +11,7 @@ export default function SupervisorDashboard() {
   const [bays, setBays] = useState([]);
   const [error, setError] = useState('');
   const [todayBookings, setTodayBookings] = useState([]);
+  const [services, setServices] = useState([]);
   const [pendingApprovals, setPendingApprovals] = useState([]);
   const [staff, setStaff] = useState([]);
   const [stats, setStats] = useState({
@@ -69,6 +70,20 @@ export default function SupervisorDashboard() {
       setError('Network error. Please check your connection and try again.');
     } finally {
       setLoading(false);
+    }
+  }
+async function loadServices(vehicleType) {
+    if (!vehicleType) return;
+    
+    try {
+      const response = await fetch(`/api/supervisor/services?businessId=${user.business_id}&vehicleType=${vehicleType}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setServices(data.services || []);
+      }
+    } catch (error) {
+      console.error('Error loading services:', error);
     }
   }
 
@@ -159,16 +174,25 @@ export default function SupervisorDashboard() {
       <>
         <Head><title>Supervisor Dashboard - CarWash Pro Kenya</title></Head>
         <ToastContainer />
+        
         {error && (
           <div style={{ margin: '1rem 2rem', background: '#fff3cd', border: '2px solid #ffc107', borderRadius: '12px', padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <div style={{ fontSize: '2rem' }}>⚠️</div>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 'bold', color: '#856404' }}>{error}</div>
             </div>
-            <button onClick={() => { setError(''); loadData(); }} 
-style={{ background: '#ffc107', color: '#856404', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Retry</button>
+            <button 
+              onClick={() => { 
+                setError(''); 
+                loadData(); 
+              }} 
+              style={{ background: '#ffc107', color: '#856404', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              Retry
+            </button>
           </div>
         )}
+        
         <div style={{ fontFamily: 'system-ui', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #006633 0%, #004d26 100%)' }}>
           <div style={{ textAlign: 'center', color: 'white' }}>
             <div style={{ fontSize: '4rem', marginBottom: '1rem', animation: 'spin 1s linear infinite' }}>⏳</div>
@@ -297,24 +321,29 @@ style={{ background: '#ffc107', color: '#856404', border: 'none', padding: '0.75
 
             <form onSubmit={handleWalkIn}>
               <div style={{ marginBottom: '1rem', position: 'relative' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Vehicle Registration *</label>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                  Vehicle Registration {walkInForm.vehicleType === 'none' ? '(Optional)' : '*'}
+                </label>
                 <input 
                   type="text" 
                   value={walkInForm.vehicleReg} 
                   onChange={(e) => {
                     const value = e.target.value.toUpperCase();
                     setWalkInForm({ ...walkInForm, vehicleReg: value });
-                    searchCustomer(value);
+                    if (value.length >= 3 && walkInForm.vehicleType !== 'none') {
+                      searchCustomer(value);
+                    }
                   }} 
-                  required 
-                  placeholder="KCA 123A (start typing...)" 
-                  pattern="[A-Z]{3}\s?\d{3}[A-Z]?"
-                  title="Format: KCA 123A or KCA123A"
-                  style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} 
+                  required={walkInForm.vehicleType !== 'none'}
+                  placeholder={walkInForm.vehicleType === 'none' ? 'N/A (service only)' : 'KCA 123A (start typing...)'} 
+                  disabled={walkInForm.vehicleType === 'none'}
+                  style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box', background: walkInForm.vehicleType === 'none' ? '#f5f5f5' : 'white' }} 
                   autoComplete="off"
                 />
                 <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem' }}>
-                  ℹ️ Enter Vehicle number plate (e.g., KCA 123A)
+                  {walkInForm.vehicleType === 'none' 
+                    ? '📦 Service only - no vehicle needed'
+                    : 'ℹ️ Enter Vehicle number plate (e.g., KCA 123A)'}
                 </div>
                 
                 {showSuggestions && customerSuggestions.length > 0 && (
@@ -360,21 +389,33 @@ style={{ background: '#ffc107', color: '#856404', border: 'none', padding: '0.75
                   autoComplete="off"
                 />
               </div>
-
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Customer Name (Optional)</label>
                 <input type="text" value={walkInForm.customerName} onChange={(e) => setWalkInForm({ ...walkInForm, customerName: e.target.value })} placeholder="John Doe" style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} />
               </div>
 
               <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Vehicle Type *</label>
-                <select value={walkInForm.vehicleType} onChange={(e) => setWalkInForm({ ...walkInForm, vehicleType: e.target.value })} required style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }}>
-                  <option value="sedan">Sedan (Normal Car)</option>
-                  <option value="suv">SUV (Big Car)</option>
-                  <option value="truck">Truck / Pickup</option>
-                  <option value="matatu">Matatu / Van</option>
-                </select>
-              </div>
+  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Vehicle Type *</label>
+  <select 
+    value={walkInForm.vehicleType} 
+    onChange={(e) => {
+      const newType = e.target.value;
+      setWalkInForm({ ...walkInForm, vehicleType: newType, serviceId: '' });
+      loadServices(newType);
+    }} 
+    required 
+    style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }}
+  >
+    <option value="none">🏠 None (Walk-in Service Only)</option>
+    <option value="sedan">🚗 Sedan (Normal Car)</option>
+    <option value="suv">🚙 SUV (Big Car)</option>
+    <option value="truck">🚚 Truck / Pickup</option>
+    <option value="matatu">🚐 Matatu / Van</option>
+  </select>
+  <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem' }}>
+    ℹ️ Select "None" for carpet cleaning or other walk-in services without a vehicle
+  </div>
+</div>
 
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Service *</label>
