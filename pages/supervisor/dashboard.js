@@ -165,7 +165,8 @@ export default function SupervisorDashboard() {
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 'bold', color: '#856404' }}>{error}</div>
             </div>
-            <button onClick={() => { setError(''); loadData(); }} style={{ background: '#ffc107', color: '#856404', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Retry</button>
+            <button onClick={() => { setError(''); loadData(); }} 
+style={{ background: '#ffc107', color: '#856404', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Retry</button>
           </div>
         )}
         <div style={{ fontFamily: 'system-ui', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #006633 0%, #004d26 100%)' }}>
@@ -203,6 +204,7 @@ export default function SupervisorDashboard() {
               <button onClick={() => setShowWalkIn(true)} style={{ background: '#FCD116', color: '#006633', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>+ Walk-in Customer</button>
               <button onClick={() => router.push('/supervisor/staff')} style={{ background: 'white', color: '#006633', border: '2px solid white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>👥 Manage Staff</button>
               <button onClick={() => router.push('/supervisor/inventory')} style={{ background: 'white', color: '#006633', border: '2px solid white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>📦 Inventory</button>
+<button onClick={() => router.push('/supervisor/services')} style={{ background: 'white', color: '#006633', border: '2px solid white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>✨ Services</button>
               <button onClick={() => loadData()} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>🔄 Refresh</button>
               <button onClick={() => logout()} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Logout</button>
             </div>
