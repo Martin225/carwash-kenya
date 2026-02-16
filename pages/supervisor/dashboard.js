@@ -35,6 +35,15 @@ export default function SupervisorDashboard() {
   const [customerSuggestions, setCustomerSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
+  // PAYMENT RECORDING STATES
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState(null);
+  const [paymentForm, setPaymentForm] = useState({
+    method: 'mpesa_till',
+    reference: ''
+  });
+  const [recordingPayment, setRecordingPayment] = useState(false);
+
   useEffect(() => {
     if (user && user.business_id) {
       loadData();
@@ -72,7 +81,8 @@ export default function SupervisorDashboard() {
       setLoading(false);
     }
   }
-async function loadServices(vehicleType) {
+
+  async function loadServices(vehicleType) {
     if (!vehicleType) return;
     
     try {
@@ -163,11 +173,51 @@ async function loadServices(vehicleType) {
     }
   }
 
+  // PAYMENT RECORDING FUNCTION
+  async function handleRecordPayment(e) {
+    e.preventDefault();
+    setRecordingPayment(true);
+
+    try {
+      const response = await fetch('/api/supervisor/record-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId: selectedBooking.id,
+          paymentMethod: paymentForm.method,
+          paymentReference: paymentForm.reference
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        showToast('✅ Payment recorded! SMS sent to customer.', 'success');
+        setShowPaymentModal(false);
+        setSelectedBooking(null);
+        setPaymentForm({ method: 'mpesa_till', reference: '' });
+        loadData();
+      } else {
+        showToast(data.message || 'Failed to record payment', 'error');
+      }
+    } catch (error) {
+      showToast('Network error. Please try again.', 'error');
+    } finally {
+      setRecordingPayment(false);
+    }
+  }
+
   const bayColors = {
     available: '#4caf50',
     occupied: '#f44336',
     cleaning: '#ff9800'
   };
+
+  // Get active bookings (completed but unpaid, or in-progress)
+  const activeBookings = todayBookings.filter(b => 
+    (b.status === 'completed' && b.payment_status !== 'paid') || 
+    b.status === 'in-progress'
+  );
 
   if (loading) {
     return (
@@ -228,7 +278,7 @@ async function loadServices(vehicleType) {
               <button onClick={() => setShowWalkIn(true)} style={{ background: '#FCD116', color: '#006633', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>+ Walk-in Customer</button>
               <button onClick={() => router.push('/supervisor/staff')} style={{ background: 'white', color: '#006633', border: '2px solid white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>👥 Manage Staff</button>
               <button onClick={() => router.push('/supervisor/inventory')} style={{ background: 'white', color: '#006633', border: '2px solid white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>📦 Inventory</button>
-<button onClick={() => router.push('/supervisor/services')} style={{ background: 'white', color: '#006633', border: '2px solid white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>✨ Services</button>
+              <button onClick={() => router.push('/supervisor/services')} style={{ background: 'white', color: '#006633', border: '2px solid white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>✨ Services</button>
               <button onClick={() => loadData()} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>🔄 Refresh</button>
               <button onClick={() => logout()} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Logout</button>
             </div>
@@ -240,7 +290,7 @@ async function loadServices(vehicleType) {
             {[
               { label: 'Cars Today', value: stats.carsToday, icon: '🚗', color: '#006633' },
               { label: 'Revenue Today', value: `Kshs ${stats.revenueToday.toLocaleString()}`, icon: '💰', color: '#0066cc' },
-              { label: 'Active Bays', value: `${stats.activeBays}/4`, icon: '🚙', color: '#ff9900' },
+              { label: 'Active Bays', value: `${stats.activeBays}/4`, icon: '🚙', color: '#ff9800' },
               { label: 'Staff on Duty', value: stats.staffOnDuty, icon: '👥', color: '#9c27b0' }
             ].map((stat, i) => (
               <div key={i} style={{ background: 'white', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', borderLeft: `4px solid ${stat.color}` }}>
@@ -273,6 +323,96 @@ async function loadServices(vehicleType) {
             </div>
           </div>
 
+          {/* ACTIVE BOOKINGS WITH PAYMENT RECORDING */}
+          <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+            <h2 style={{ margin: '0 0 1.5rem 0', color: '#006633' }}>💼 Active Bookings ({activeBookings.length})</h2>
+            {activeBookings.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '3rem' }}>
+                <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>✅</div>
+                <p style={{ color: '#999', fontSize: '1.2rem' }}>No active bookings</p>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gap: '1.5rem' }}>
+                {activeBookings.map((booking) => (
+                  <div key={booking.id} style={{ background: 'white', padding: '1.5rem', border: '2px solid #e0e0e0', borderRadius: '12px', borderLeft: `4px solid ${booking.status === 'completed' ? '#4caf50' : '#ff9800'}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+                      <div style={{ flex: 1 }}>
+                        <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.2rem' }}>
+                          {booking.vehicle_reg ? `🚗 ${booking.vehicle_reg}` : '📦 Walk-in Service'}
+                        </h3>
+                        <div style={{ color: '#666', marginBottom: '0.5rem' }}>
+                          <p style={{ margin: '0.25rem 0' }}>👤 {booking.customer_name}</p>
+                          <p style={{ margin: '0.25rem 0' }}>📞 {booking.phone}</p>
+                          <p style={{ margin: '0.25rem 0' }}>🧼 {booking.service_name}</p>
+                          <p style={{ margin: '0.25rem 0', fontWeight: 'bold', color: '#006633', fontSize: '1.1rem' }}>
+                            💰 Kshs {booking.final_amount}
+                          </p>
+                        </div>
+                        {booking.bay_name && (
+                          <span style={{ background: '#e3f2fd', color: '#1976d2', padding: '0.25rem 0.75rem', borderRadius: '12px', fontSize: '0.85rem', marginRight: '0.5rem' }}>
+                            📍 {booking.bay_name}
+                          </span>
+                        )}
+                        {booking.staff_name && (
+                          <span style={{ background: '#f3e5f5', color: '#7b1fa2', padding: '0.25rem 0.75rem', borderRadius: '12px', fontSize: '0.85rem' }}>
+                            👤 {booking.staff_name}
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <span style={{ 
+                          background: booking.payment_status === 'paid' ? '#e8f5e9' : '#fff3e0',
+                          color: booking.payment_status === 'paid' ? '#2e7d32' : '#f57c00',
+                          padding: '0.5rem 1rem', 
+                          borderRadius: '20px', 
+                          fontSize: '0.9rem', 
+                          fontWeight: 'bold',
+                          display: 'inline-block'
+                        }}>
+                          {booking.payment_status === 'paid' ? '✅ PAID' : '⏳ UNPAID'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {booking.status === 'completed' && booking.payment_status !== 'paid' && (
+                      <button 
+                        onClick={() => {
+                          setSelectedBooking(booking);
+                          setShowPaymentModal(true);
+                        }}
+                        style={{ 
+                          width: '100%', 
+                          background: '#006633', 
+                          color: 'white', 
+                          border: 'none', 
+                          padding: '1rem', 
+                          borderRadius: '8px', 
+                          cursor: 'pointer', 
+                          fontWeight: 'bold',
+                          fontSize: '1rem'
+                        }}
+                      >
+                        💳 RECORD PAYMENT
+                      </button>
+                    )}
+
+                    {booking.payment_status === 'paid' && (
+                      <div style={{ background: '#e8f5e9', padding: '0.75rem', borderRadius: '8px', marginTop: '1rem' }}>
+                        <div style={{ fontSize: '0.9rem', color: '#2e7d32', fontWeight: 'bold' }}>
+                          ✅ Payment Received
+                        </div>
+                        <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.25rem' }}>
+                          Method: {booking.payment_method?.replace('_', ' ').toUpperCase()}
+                          {booking.payment_reference && ` • Ref: ${booking.payment_reference}`}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
             <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
               <h2 style={{ margin: '0 0 1rem 0', color: '#006633' }}>⏳ Pending Approvals ({pendingApprovals.length})</h2>
@@ -302,7 +442,7 @@ async function loadServices(vehicleType) {
                 <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                   {todayBookings.map((booking) => (
                     <div key={booking.id} style={{ borderLeft: `4px solid ${booking.status === 'completed' ? '#4caf50' : booking.status === 'in-progress' ? '#ff9800' : '#2196f3'}`, padding: '0.75rem', marginBottom: '0.75rem', background: '#f9f9f9', borderRadius: '0 8px 8px 0' }}>
-                      <div style={{ fontWeight: 'bold' }}>{booking.booking_time} • {booking.vehicle_reg}</div>
+                      <div style={{ fontWeight: 'bold' }}>{booking.booking_time} • {booking.vehicle_reg || 'Walk-in'}</div>
                       <div style={{ fontSize: '0.9rem', color: '#666', marginTop: '0.25rem' }}>{booking.service_name} • {booking.customer_name}</div>
                     </div>
                   ))}
@@ -313,6 +453,7 @@ async function loadServices(vehicleType) {
         </div>
       </div>
 
+      {/* WALK-IN MODAL */}
       {showWalkIn && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }} onClick={() => setShowWalkIn(false)}>
           <div style={{ background: 'white', padding: '2rem', borderRadius: '20px', maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
@@ -340,11 +481,6 @@ async function loadServices(vehicleType) {
                   style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box', background: walkInForm.vehicleType === 'none' ? '#f5f5f5' : 'white' }} 
                   autoComplete="off"
                 />
-                <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem' }}>
-                  {walkInForm.vehicleType === 'none' 
-                    ? '📦 Service only - no vehicle needed'
-                    : 'ℹ️ Enter Vehicle number plate (e.g., KCA 123A)'}
-                </div>
                 
                 {showSuggestions && customerSuggestions.length > 0 && (
                   <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '2px solid #006633', borderRadius: '8px', maxHeight: '200px', overflowY: 'auto', zIndex: 1000, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
@@ -384,38 +520,35 @@ async function loadServices(vehicleType) {
                     }
                   }} 
                   required 
-                  placeholder="0722XXXXXX (or start typing...)" 
+                  placeholder="0722XXXXXX" 
                   style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} 
-                  autoComplete="off"
                 />
               </div>
+
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Customer Name (Optional)</label>
                 <input type="text" value={walkInForm.customerName} onChange={(e) => setWalkInForm({ ...walkInForm, customerName: e.target.value })} placeholder="John Doe" style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} />
               </div>
 
               <div style={{ marginBottom: '1rem' }}>
-  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Vehicle Type *</label>
-  <select 
-    value={walkInForm.vehicleType} 
-    onChange={(e) => {
-      const newType = e.target.value;
-      setWalkInForm({ ...walkInForm, vehicleType: newType, serviceId: '' });
-      loadServices(newType);
-    }} 
-    required 
-    style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }}
-  >
-    <option value="none">🏠 None (Walk-in Service Only)</option>
-    <option value="sedan">🚗 Sedan (Normal Car)</option>
-    <option value="suv">🚙 SUV (Big Car)</option>
-    <option value="truck">🚚 Truck / Pickup</option>
-    <option value="matatu">🚐 Matatu / Van</option>
-  </select>
-  <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem' }}>
-    ℹ️ Select "None" for carpet cleaning or other walk-in services without a vehicle
-  </div>
-</div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Vehicle Type *</label>
+                <select 
+                  value={walkInForm.vehicleType} 
+                  onChange={(e) => {
+                    const newType = e.target.value;
+                    setWalkInForm({ ...walkInForm, vehicleType: newType, serviceId: '' });
+                    loadServices(newType);
+                  }} 
+                  required 
+                  style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }}
+                >
+                  <option value="none">🏠 None (Walk-in Service Only)</option>
+                  <option value="sedan">🚗 Sedan</option>
+                  <option value="suv">🚙 SUV</option>
+                  <option value="truck">🚚 Truck</option>
+                  <option value="matatu">🚐 Matatu</option>
+                </select>
+              </div>
 
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Service *</label>
@@ -428,17 +561,14 @@ async function loadServices(vehicleType) {
               </div>
 
               <div style={{ marginBottom: '1rem' }}>
-  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Assign to Bay (Optional)</label>
-  <select value={walkInForm.bayId} onChange={(e) => setWalkInForm({ ...walkInForm, bayId: e.target.value })} style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }}>
-    <option value="">No bay (Queue only)</option>
-    {bays.filter(b => b.status === 'available').map(bay => (
-      <option key={bay.id} value={bay.id}>Bay {bay.bay_number} - Available</option>
-    ))}
-  </select>
-  <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem' }}>
-    ℹ️ Leave empty to queue the car without assigning a bay
-  </div>
-</div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Assign to Bay (Optional)</label>
+                <select value={walkInForm.bayId} onChange={(e) => setWalkInForm({ ...walkInForm, bayId: e.target.value })} style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }}>
+                  <option value="">No bay (Queue only)</option>
+                  {bays.filter(b => b.status === 'available').map(bay => (
+                    <option key={bay.id} value={bay.id}>Bay {bay.bay_number} - Available</option>
+                  ))}
+                </select>
+              </div>
 
               <div style={{ marginBottom: '1.5rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Assign Staff *</label>
@@ -455,6 +585,116 @@ async function loadServices(vehicleType) {
               </button>
 
               <button type="button" onClick={() => setShowWalkIn(false)} style={{ width: '100%', background: '#f0f0f0', color: '#666', border: 'none', padding: '0.75rem', borderRadius: '8px', cursor: 'pointer' }}>Cancel</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* PAYMENT RECORDING MODAL */}
+      {showPaymentModal && selectedBooking && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }} onClick={() => !recordingPayment && setShowPaymentModal(false)}>
+          <div style={{ background: 'white', padding: '2rem', borderRadius: '20px', maxWidth: '500px', width: '100%' }} onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ color: '#006633', marginBottom: '0.5rem' }}>💳 Record Payment</h2>
+            <p style={{ color: '#666', marginBottom: '1.5rem' }}>
+              Customer: {selectedBooking.customer_name}<br/>
+              Vehicle: {selectedBooking.vehicle_reg || 'Walk-in Service'}<br/>
+              Amount: <strong style={{ color: '#006633', fontSize: '1.2rem' }}>Kshs {selectedBooking.final_amount}</strong>
+            </p>
+            
+            <form onSubmit={handleRecordPayment}>
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>How did customer pay? *</label>
+                <select
+                  value={paymentForm.method}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, method: e.target.value })}
+                  required
+                  style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }}
+                >
+                  <option value="mpesa_till">M-Pesa Till</option>
+                  <option value="mpesa_paybill">M-Pesa Paybill</option>
+                  <option value="bank_transfer">Bank Transfer</option>
+                  <option value="cash">Cash</option>
+                </select>
+              </div>
+
+              {(paymentForm.method === 'mpesa_till' || paymentForm.method === 'mpesa_paybill') && (
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                    M-Pesa Reference Code (optional but recommended)
+                  </label>
+                  <input
+                    type="text"
+                    value={paymentForm.reference}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, reference: e.target.value.toUpperCase() })}
+                    placeholder="e.g., AB12CD34EF"
+                    maxLength="10"
+                    style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }}
+                  />
+                  <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.25rem' }}>
+                    📱 Found in customer's M-Pesa message
+                  </div>
+                </div>
+              )}
+
+              {paymentForm.method === 'bank_transfer' && (
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                    Bank Reference (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={paymentForm.reference}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, reference: e.target.value })}
+                    placeholder="e.g., TXN123456"
+                    style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }}
+                  />
+                </div>
+              )}
+
+              <div style={{ background: '#e8f5e9', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
+                <div style={{ fontWeight: 'bold', color: '#2e7d32', marginBottom: '0.5rem' }}>What happens next?</div>
+                <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                  ✅ Payment recorded in system<br/>
+                  📱 SMS sent to customer automatically<br/>
+                  📊 Revenue tracked in reports
+                </div>
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={recordingPayment}
+                style={{ 
+                  width: '100%', 
+                  background: recordingPayment ? '#ccc' : '#006633', 
+                  color: 'white', 
+                  border: 'none', 
+                  padding: '1rem', 
+                  borderRadius: '8px', 
+                  cursor: recordingPayment ? 'not-allowed' : 'pointer', 
+                  fontWeight: 'bold', 
+                  fontSize: '1rem', 
+                  marginBottom: '0.5rem' 
+                }}
+              >
+                {recordingPayment ? '⏳ Recording...' : '✓ CONFIRM PAYMENT & SEND SMS'}
+              </button>
+
+              <button 
+                type="button" 
+                onClick={() => setShowPaymentModal(false)} 
+                disabled={recordingPayment}
+                style={{ 
+                  width: '100%', 
+                  background: '#f0f0f0', 
+                  color: '#666', 
+                  border: 'none', 
+                  padding: '0.75rem', 
+                  borderRadius: '8px', 
+                  cursor: recordingPayment ? 'not-allowed' : 'pointer' 
+                }}
+              >
+                Cancel
+              </button>
             </form>
           </div>
         </div>

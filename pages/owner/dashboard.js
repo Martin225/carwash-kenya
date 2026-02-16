@@ -189,7 +189,6 @@ export default function OwnerDashboard() {
         showToast('Payment request sent! Check your phone for M-Pesa prompt.', 'success');
         setShowPayment(false);
         
-        // Poll for payment status
         const paymentId = data.data.paymentId;
         pollPaymentStatus(paymentId);
       } else {
@@ -257,6 +256,7 @@ export default function OwnerDashboard() {
             </div>
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               <button onClick={() => setActiveTab('overview')} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Dashboard</button>
+              <button onClick={() => router.push('/owner/payment-settings')} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>💳 Payments</button>
               <button onClick={() => logout()} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Logout</button>
             </div>
           </div>
