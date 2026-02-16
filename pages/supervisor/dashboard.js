@@ -7,9 +7,9 @@ import { useAuth } from '../../lib/auth-context';
 export default function SupervisorDashboard() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { showToast, ToastContainer } = useToast();
   const [bays, setBays] = useState([]);
   const [error, setError] = useState('');
-  const { showToast, ToastContainer } = useToast();
   const [todayBookings, setTodayBookings] = useState([]);
   const [pendingApprovals, setPendingApprovals] = useState([]);
   const [staff, setStaff] = useState([]);
@@ -45,32 +45,32 @@ export default function SupervisorDashboard() {
   }, [user]);
 
   async function loadData() {
-  try {
-    setError('');
-    const response = await fetch(`/api/supervisor/dashboard?businessId=${user.business_id}`);
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch data');
+    try {
+      setError('');
+      const response = await fetch(`/api/supervisor/dashboard?businessId=${user.business_id}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch data');
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setBays(data.bays || []);
+        setTodayBookings(data.todayBookings || []);
+        setPendingApprovals(data.pendingApprovals || []);
+        setStaff(data.staff || []);
+        setStats(data.stats || stats);
+      } else {
+        setError(data.message || 'Failed to load dashboard');
+      }
+    } catch (error) {
+      console.error('Error loading data:', error);
+      setError('Network error. Please check your connection and try again.');
+    } finally {
+      setLoading(false);
     }
-    
-    const data = await response.json();
-    
-    if (data.success) {
-      setBays(data.bays || []);
-      setTodayBookings(data.todayBookings || []);
-      setPendingApprovals(data.pendingApprovals || []);
-      setStaff(data.staff || []);
-      setStats(data.stats || stats);
-    } else {
-      setError(data.message || 'Failed to load dashboard');
-    }
-  } catch (error) {
-    console.error('Error loading data:', error);
-    setError('Network error. Please check your connection and try again.');
-  } finally {
-    setLoading(false);
   }
-}
 
   async function searchCustomer(searchText) {
     if (searchText.length < 3) {
@@ -106,49 +106,47 @@ export default function SupervisorDashboard() {
     setShowSuggestions(false);
     
     if (vehicle.total_visits > 0) {
-      const msg = `🎉 Returning Customer!\n\n` +
-                  `Name: ${vehicle.customer_name}\n` +
-                  `Visits: ${vehicle.total_visits}\n` +
-                  `Loyalty Points: ${vehicle.loyalty_points}\n` +
-                  `Last Visit: ${vehicle.last_visit_date ? new Date(vehicle.last_visit_date).toLocaleDateString() : 'N/A'}`;
-      alert(msg);
+      const lastVisit = vehicle.last_visit_date ? new Date(vehicle.last_visit_date).toLocaleDateString() : 'N/A';
+      showToast(
+        `🎉 Returning Customer! ${vehicle.customer_name} - ${vehicle.total_visits} visits, ${vehicle.loyalty_points} points. Last visit: ${lastVisit}`, 
+        'success'
+      );
     }
   }
 
   async function handleWalkIn(e) {
-  e.preventDefault();
-  setWalkInLoading(true);
+    e.preventDefault();
+    setWalkInLoading(true);
 
-  try {
-    const response = await fetch('/api/supervisor/walkin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...walkInForm, businessId: user.business_id })
-    });
+    try {
+      const response = await fetch('/api/supervisor/walkin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...walkInForm, businessId: user.business_id })
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (data.success) {
-      alert(`✅ Customer Registered!\n\nQueue #${data.queueNumber}\nBay: ${data.bayNumber}\nAmount: Kshs ${data.amount}\n\nStaff has been notified.`);
-      setShowWalkIn(false);
-      setWalkInForm({ vehicleReg: '', phone: '', customerName: '', vehicleType: 'sedan', serviceId: '', bayId: '', staffId: '' });
-      loadData();
-    } else {
-      // Better error messages based on error type
-      let errorMsg = data.message;
-      if (errorMsg.includes('Branch not found')) {
-        errorMsg = 'No branch found. Please contact your administrator.';
-      } else if (errorMsg.includes('not found')) {
-        errorMsg = 'Service or pricing not configured. Please contact support.';
+      if (data.success) {
+        showToast(`Customer registered! Queue #${data.queueNumber} | Bay: ${data.bayNumber} | Amount: Kshs ${data.amount}`, 'success');
+        setShowWalkIn(false);
+        setWalkInForm({ vehicleReg: '', phone: '', customerName: '', vehicleType: 'sedan', serviceId: '', bayId: '', staffId: '' });
+        loadData();
+      } else {
+        let errorMsg = data.message;
+        if (errorMsg.includes('Branch not found')) {
+          errorMsg = 'No branch found. Please contact your administrator.';
+        } else if (errorMsg.includes('not found')) {
+          errorMsg = 'Service or pricing not configured. Please contact support.';
+        }
+        showToast(errorMsg, 'error');
       }
-      alert('❌ Registration Failed\n\n' + errorMsg);
+    } catch (error) {
+      showToast('Network error. Please check your internet connection and try again.', 'error');
+    } finally {
+      setWalkInLoading(false);
     }
-  } catch (error) {
-    alert('❌ Network Error\n\nUnable to register customer. Please check your internet connection and try again.');
-  } finally {
-    setWalkInLoading(false);
   }
-}
 
   const bayColors = {
     available: '#4caf50',
@@ -160,15 +158,16 @@ export default function SupervisorDashboard() {
     return (
       <>
         <Head><title>Supervisor Dashboard - CarWash Pro Kenya</title></Head>
+        <ToastContainer />
         {error && (
-  <div style={{ margin: '1rem 2rem', background: '#fff3cd', border: '2px solid #ffc107', borderRadius: '12px', padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-    <div style={{ fontSize: '2rem' }}>⚠️</div>
-    <div style={{ flex: 1 }}>
-      <div style={{ fontWeight: 'bold', color: '#856404' }}>{error}</div>
-    </div>
-    <button onClick={() => { setError(''); loadData(); }} style={{ background: '#ffc107', color: '#856404', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Retry</button>
-  </div>
-)}
+          <div style={{ margin: '1rem 2rem', background: '#fff3cd', border: '2px solid #ffc107', borderRadius: '12px', padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{ fontSize: '2rem' }}>⚠️</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 'bold', color: '#856404' }}>{error}</div>
+            </div>
+            <button onClick={() => { setError(''); loadData(); }} style={{ background: '#ffc107', color: '#856404', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Retry</button>
+          </div>
+        )}
         <div style={{ fontFamily: 'system-ui', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #006633 0%, #004d26 100%)' }}>
           <div style={{ textAlign: 'center', color: 'white' }}>
             <div style={{ fontSize: '4rem', marginBottom: '1rem', animation: 'spin 1s linear infinite' }}>⏳</div>
@@ -191,7 +190,7 @@ export default function SupervisorDashboard() {
       <Head>
         <title>Supervisor Dashboard - CarWash Pro Kenya</title>
       </Head>
-    <ToastContainer />
+      <ToastContainer />
 
       <div style={{ fontFamily: 'system-ui', minHeight: '100vh', background: '#f5f5f5' }}>
         <div style={{ background: 'linear-gradient(135deg, #006633 0%, #004d26 100%)', color: 'white', padding: '1rem 2rem', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
@@ -298,23 +297,23 @@ export default function SupervisorDashboard() {
               <div style={{ marginBottom: '1rem', position: 'relative' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Vehicle Registration *</label>
                 <input 
-  type="text" 
-  value={walkInForm.vehicleReg} 
-  onChange={(e) => {
-    const value = e.target.value.toUpperCase();
-    setWalkInForm({ ...walkInForm, vehicleReg: value });
-    searchCustomer(value);
-  }} 
-  required 
-  placeholder="KCA 123A (start typing...)" 
-  pattern="[A-Z]{3}\s?\d{3}[A-Z]?"
-  title="Format: KCA 123A or KCA123A"
-  style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} 
-  autoComplete="off"
-/>
-<div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem' }}>
-  ℹ️ Enter Vehicle number plate (e.g., KCA 123A)
-</div>
+                  type="text" 
+                  value={walkInForm.vehicleReg} 
+                  onChange={(e) => {
+                    const value = e.target.value.toUpperCase();
+                    setWalkInForm({ ...walkInForm, vehicleReg: value });
+                    searchCustomer(value);
+                  }} 
+                  required 
+                  placeholder="KCA 123A (start typing...)" 
+                  pattern="[A-Z]{3}\s?\d{3}[A-Z]?"
+                  title="Format: KCA 123A or KCA123A"
+                  style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} 
+                  autoComplete="off"
+                />
+                <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem' }}>
+                  ℹ️ Enter Vehicle number plate (e.g., KCA 123A)
+                </div>
                 
                 {showSuggestions && customerSuggestions.length > 0 && (
                   <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '2px solid #006633', borderRadius: '8px', maxHeight: '200px', overflowY: 'auto', zIndex: 1000, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
