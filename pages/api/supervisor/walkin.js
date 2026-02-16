@@ -52,19 +52,53 @@ export default async function handler(req, res) {
 
     if (!customer) {
       console.log('Creating new customer...');
+      
+      // Check if business_id column exists in customers table
+      const hasBusinessId = await query(
+        `SELECT column_name 
+         FROM information_schema.columns 
+         WHERE table_name = 'customers' 
+         AND column_name = 'business_id'`
+      );
+
       try {
-        // Try with 'phone' column first
-        customer = await querySingle(
-          'INSERT INTO customers (business_id, phone, full_name, loyalty_points, total_visits, created_at) VALUES ($1, $2, $3, 0, 0, NOW()) RETURNING *',
-          [businessId, phone, customerName || 'Walk-in Customer']
-        );
+        if (hasBusinessId && hasBusinessId.length > 0) {
+          // Create with business_id (multi-tenant)
+          console.log('Creating customer with business_id...');
+          customer = await querySingle(
+            `INSERT INTO customers (business_id, phone, full_name, loyalty_points, total_visits, created_at) 
+             VALUES ($1, $2, $3, 0, 0, NOW()) 
+             RETURNING *`,
+            [businessId, phone, customerName || 'Walk-in Customer']
+          );
+        } else {
+          // Create without business_id (legacy schema)
+          console.log('Creating customer without business_id (legacy)...');
+          customer = await querySingle(
+            `INSERT INTO customers (phone, full_name, loyalty_points, total_visits, created_at) 
+             VALUES ($1, $2, 0, 0, NOW()) 
+             RETURNING *`,
+            [phone, customerName || 'Walk-in Customer']
+          );
+        }
       } catch (phoneError) {
-        // Fallback to 'phone_number' if 'phone' doesn't exist
-        console.log('Trying phone_number column...');
-        customer = await querySingle(
-          'INSERT INTO customers (business_id, phone_number, full_name, loyalty_points, total_visits, created_at) VALUES ($1, $2, $3, 0, 0, NOW()) RETURNING *',
-          [businessId, phone, customerName || 'Walk-in Customer']
-        );
+        console.log('Phone column failed, trying phone_number...');
+        // Fallback to phone_number column
+        if (hasBusinessId && hasBusinessId.length > 0) {
+          customer = await querySingle(
+            `INSERT INTO customers (business_id, phone_number, full_name, loyalty_points, total_visits, created_at) 
+             VALUES ($1, $2, $3, 0, 0, NOW()) 
+             RETURNING *`,
+            [businessId, phone, customerName || 'Walk-in Customer']
+          );
+        } else {
+          customer = await querySingle(
+            `INSERT INTO customers (phone_number, full_name, loyalty_points, total_visits, created_at) 
+             VALUES ($1, $2, 0, 0, NOW()) 
+             RETURNING *`,
+            [phone, customerName || 'Walk-in Customer']
+          );
+        }
       }
       console.log('Customer created:', customer.id);
     } else {
