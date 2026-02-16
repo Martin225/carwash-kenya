@@ -113,21 +113,72 @@ export default async function handler(req, res) {
       console.log('New customer created:', customer.id);
     }
 
-    // Find or create vehicle FOR THIS CUSTOMER
-    let vehicle = await querySingle(
-      'SELECT * FROM vehicles WHERE registration_number = $1 AND customer_id = $2',
-      [vehicleReg, customer.id]
-    );
-
-    if (!vehicle) {
-      console.log('Creating new vehicle for customer...');
+    // Find vehicle by registration number FIRST (regardless of customer)
+    let vehicle = null;
+    
+    try {
       vehicle = await querySingle(
-        'INSERT INTO vehicles (customer_id, registration_number, vehicle_type, model, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING *',
-        [customer.id, vehicleReg, vehicleType || 'sedan', vehicleType || 'Not specified']
+        'SELECT * FROM vehicles WHERE registration_number = $1',
+        [vehicleReg]
       );
-      console.log('Vehicle created:', vehicle.id, 'for customer:', customer.id);
-    } else {
-      console.log('Existing vehicle found:', vehicle.id);
+      
+      if (vehicle) {
+        console.log('Found existing vehicle:', vehicle.id, 'Owner customer_id:', vehicle.customer_id);
+        
+        // Check if vehicle belongs to this customer
+        if (vehicle.customer_id !== customer.id) {
+          // Vehicle belongs to DIFFERENT customer
+          console.log('WARNING: Vehicle belongs to different customer!');
+          console.log('Vehicle owner:', vehicle.customer_id, 'Current customer:', customer.id);
+          
+          // Option 1: Transfer vehicle to new customer (if previous customer typo)
+          // Option 2: Reject (someone trying to register another person's car)
+          
+          // For now, let's UPDATE the vehicle to belong to the current customer
+          // This handles cases where phone number changed or customer merged
+          await query(
+            'UPDATE vehicles SET customer_id = $1 WHERE id = $2',
+            [customer.id, vehicle.id]
+          );
+          
+          console.log('Vehicle ownership transferred to customer:', customer.id);
+        } else {
+          console.log('Vehicle already belongs to this customer - perfect!');
+        }
+      }
+    } catch (vehicleLookupError) {
+      console.log('Vehicle lookup failed:', vehicleLookupError.message);
+      vehicle = null;
+    }
+
+    // Create vehicle if it doesn't exist
+    if (!vehicle) {
+      console.log('Creating new vehicle...');
+      try {
+        vehicle = await querySingle(
+          'INSERT INTO vehicles (customer_id, registration_number, vehicle_type, model, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING *',
+          [customer.id, vehicleReg, vehicleType || 'sedan', vehicleType || 'Not specified']
+        );
+        console.log('New vehicle created:', vehicle.id, 'for customer:', customer.id);
+      } catch (insertError) {
+        // Last resort: if insert fails, try to find ANY vehicle with this reg number
+        console.log('Vehicle insert failed, fetching existing vehicle...');
+        vehicle = await querySingle(
+          'SELECT * FROM vehicles WHERE registration_number = $1',
+          [vehicleReg]
+        );
+        
+        if (vehicle) {
+          console.log('Using existing vehicle:', vehicle.id);
+          // Update to current customer
+          await query(
+            'UPDATE vehicles SET customer_id = $1 WHERE id = $2',
+            [customer.id, vehicle.id]
+          );
+        } else {
+          throw new Error('Failed to create or find vehicle');
+        }
+      }
     }
 
     // Get service pricing
