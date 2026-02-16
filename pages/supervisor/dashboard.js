@@ -378,21 +378,24 @@ export default function SupervisorDashboard() {
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Service *</label>
                 <select value={walkInForm.serviceId} onChange={(e) => setWalkInForm({ ...walkInForm, serviceId: e.target.value })} required style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }}>
                   <option value="">Select Service</option>
-                  <option value="1">Basic Wash - Kshs 500</option>
+                  <option value="1">Basic Wash - Kshs 300</option>
                   <option value="2">Premium Wash - Kshs 800</option>
                   <option value="3">Full Detailing - Kshs 1500</option>
                 </select>
               </div>
 
               <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Assign to Bay *</label>
-                <select value={walkInForm.bayId} onChange={(e) => setWalkInForm({ ...walkInForm, bayId: e.target.value })} required style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }}>
-                  <option value="">Select Bay</option>
-                  {bays.filter(b => b.status === 'available').map(bay => (
-                    <option key={bay.id} value={bay.id}>Bay {bay.bay_number} - Available</option>
-                  ))}
-                </select>
-              </div>
+  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Assign to Bay (Optional)</label>
+  <select value={walkInForm.bayId} onChange={(e) => setWalkInForm({ ...walkInForm, bayId: e.target.value })} style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }}>
+    <option value="">No bay (Queue only)</option>
+    {bays.filter(b => b.status === 'available').map(bay => (
+      <option key={bay.id} value={bay.id}>Bay {bay.bay_number} - Available</option>
+    ))}
+  </select>
+  <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem' }}>
+    ℹ️ Leave empty to queue the car without assigning a bay
+  </div>
+</div>
 
               <div style={{ marginBottom: '1.5rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Assign Staff *</label>

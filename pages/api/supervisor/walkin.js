@@ -39,21 +39,32 @@ export default async function handler(req, res) {
     const branchId = branches[0].id;
     console.log('Branch ID:', branchId);
 
-    // Find or create customer (try both column names for compatibility)
-    let customer;
+// Find existing customer by phone (one customer can have multiple cars!)
+    let customer = null;
+    
+    // Try to find customer with either phone or phone_number column
     try {
-      customer = await querySingle(
-        'SELECT * FROM customers WHERE phone = $1 OR phone_number = $1',
-        [phone]
+      const customers = await query(
+        `SELECT * FROM customers 
+         WHERE (phone = $1 OR phone_number = $1)
+         ${businessId ? 'AND (business_id = $2 OR business_id IS NULL)' : ''}
+         LIMIT 1`,
+        businessId ? [phone, businessId] : [phone]
       );
-    } catch (e) {
-      customer = null;
+      
+      if (customers && customers.length > 0) {
+        customer = customers[0];
+        console.log('Found existing customer:', customer.id);
+      }
+    } catch (lookupError) {
+      console.log('Customer lookup failed (will create new):', lookupError.message);
     }
 
+    // Create new customer if not found
     if (!customer) {
       console.log('Creating new customer...');
       
-      // Check if business_id column exists in customers table
+      // Check if business_id column exists
       const hasBusinessId = await query(
         `SELECT column_name 
          FROM information_schema.columns 
@@ -61,10 +72,11 @@ export default async function handler(req, res) {
          AND column_name = 'business_id'`
       );
 
+      const useBusinessId = hasBusinessId && hasBusinessId.length > 0;
+
       try {
-        if (hasBusinessId && hasBusinessId.length > 0) {
-          // Create with business_id (multi-tenant)
-          console.log('Creating customer with business_id...');
+        // Try with 'phone' column first
+        if (useBusinessId) {
           customer = await querySingle(
             `INSERT INTO customers (business_id, phone, full_name, loyalty_points, total_visits, created_at) 
              VALUES ($1, $2, $3, 0, 0, NOW()) 
@@ -72,8 +84,6 @@ export default async function handler(req, res) {
             [businessId, phone, customerName || 'Walk-in Customer']
           );
         } else {
-          // Create without business_id (legacy schema)
-          console.log('Creating customer without business_id (legacy)...');
           customer = await querySingle(
             `INSERT INTO customers (phone, full_name, loyalty_points, total_visits, created_at) 
              VALUES ($1, $2, 0, 0, NOW()) 
@@ -82,9 +92,9 @@ export default async function handler(req, res) {
           );
         }
       } catch (phoneError) {
-        console.log('Phone column failed, trying phone_number...');
-        // Fallback to phone_number column
-        if (hasBusinessId && hasBusinessId.length > 0) {
+        // Fallback to 'phone_number' column
+        console.log('Trying phone_number column instead...');
+        if (useBusinessId) {
           customer = await querySingle(
             `INSERT INTO customers (business_id, phone_number, full_name, loyalty_points, total_visits, created_at) 
              VALUES ($1, $2, $3, 0, 0, NOW()) 
@@ -100,24 +110,22 @@ export default async function handler(req, res) {
           );
         }
       }
-      console.log('Customer created:', customer.id);
-    } else {
-      console.log('Existing customer found:', customer.id);
+      console.log('New customer created:', customer.id);
     }
 
-    // Find or create vehicle
+    // Find or create vehicle FOR THIS CUSTOMER
     let vehicle = await querySingle(
       'SELECT * FROM vehicles WHERE registration_number = $1 AND customer_id = $2',
       [vehicleReg, customer.id]
     );
 
     if (!vehicle) {
-      console.log('Creating new vehicle...');
+      console.log('Creating new vehicle for customer...');
       vehicle = await querySingle(
         'INSERT INTO vehicles (customer_id, registration_number, vehicle_type, model, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING *',
         [customer.id, vehicleReg, vehicleType || 'sedan', vehicleType || 'Not specified']
       );
-      console.log('Vehicle created:', vehicle.id);
+      console.log('Vehicle created:', vehicle.id, 'for customer:', customer.id);
     } else {
       console.log('Existing vehicle found:', vehicle.id);
     }
@@ -171,7 +179,7 @@ export default async function handler(req, res) {
 
     console.log('Booking created:', booking.id);
 
-    // Update bay status if bay provided
+    // Update bay status if bay provided (bay is now optional!)
     if (bayId) {
       try {
         await query(
@@ -185,6 +193,8 @@ export default async function handler(req, res) {
       } catch (bayError) {
         console.log('Bay update failed (non-critical):', bayError.message);
       }
+    } else {
+      console.log('No bay assigned - car queued to staff');
     }
 
     // Update customer stats
