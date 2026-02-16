@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import { querySingle } from '../../../lib/db';
 
 export default async function handler(req, res) {
@@ -9,11 +10,29 @@ export default async function handler(req, res) {
     const { email, password } = req.body;
 
     const user = await querySingle(
-      'SELECT * FROM users WHERE email = $1 AND password_hash = $2',
-      [email, password]
+      'SELECT * FROM users WHERE email = $1',
+      [email]
     );
 
     if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password'
+      });
+    }
+
+    // Check if password is hashed (starts with $2a$ or $2b$)
+    let passwordMatch = false;
+
+    if (user.password_hash.startsWith('$2a$') || user.password_hash.startsWith('$2b$')) {
+      // Hashed password - use bcrypt
+      passwordMatch = await bcrypt.compare(password, user.password_hash);
+    } else {
+      // Plain text password (old accounts) - direct comparison
+      passwordMatch = (password === user.password_hash);
+    }
+
+    if (!passwordMatch) {
       return res.status(401).json({
         success: false,
         message: 'Invalid email or password'
@@ -27,7 +46,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // Get business details
     let business = null;
     if (user.business_id) {
       business = await querySingle(
@@ -35,7 +53,6 @@ export default async function handler(req, res) {
         [user.business_id]
       );
 
-      // Check subscription expiry (except for super admin)
       if (business && user.role !== 'super_admin') {
         if (business.trial_ends_at) {
           const trialEnd = new Date(business.trial_ends_at);
@@ -51,7 +68,6 @@ export default async function handler(req, res) {
       }
     }
 
-    // Build user response
     const userData = {
       id: user.id,
       full_name: user.full_name,
@@ -59,7 +75,6 @@ export default async function handler(req, res) {
       phone: user.phone,
       role: user.role,
       business_id: user.business_id,
-      branch_id: user.branch_id,
       business_name: business?.business_name,
       trial_ends_at: business?.trial_ends_at,
       subscription_status: business?.subscription_status
@@ -69,6 +84,7 @@ export default async function handler(req, res) {
     console.log('User:', user.full_name);
     console.log('Role:', user.role);
     console.log('Business:', business?.business_name);
+    console.log('Trial Ends:', business?.trial_ends_at);
     console.log('====================');
 
     return res.status(200).json({

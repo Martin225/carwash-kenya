@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../lib/auth-context';
+import { useToast } from '../../components/Toast';  // ADD THIS LINE
 
 export default function OwnerDashboard() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { showToast, ToastContainer } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState({
     totalRevenue: 0,
@@ -127,15 +129,14 @@ export default function OwnerDashboard() {
 
       const data = await response.json();
       if (data.success) {
-        alert('✅ Supervisor added successfully!');
-        setShowAddSupervisor(false);
+showToast('Supervisor added successfully!', 'success');        setShowAddSupervisor(false);
         setSupervisorForm({ fullName: '', email: '', phone: '', password: '', branchId: '' });
         loadSupervisors();
       } else {
-        alert('❌ ' + data.message);
+        showToast(data.message, 'error');
       }
     } catch (error) {
-      alert('Failed to add supervisor');
+      showToast(`Supervisor ${action}d successfully!`, 'success');
     }
   }
 
@@ -165,6 +166,7 @@ export default function OwnerDashboard() {
       <Head>
         <title>Owner Dashboard - CarWash Pro Kenya</title>
       </Head>
+<ToastContainer />
 
       <style>{`
         @keyframes pulse {
@@ -181,8 +183,8 @@ export default function OwnerDashboard() {
         <div style={{ background: 'linear-gradient(135deg, #006633 0%, #004d26 100%)', color: 'white', padding: '1.5rem 2rem', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
-              <h1 style={{ margin: 0, fontSize: '1.8rem' }}>👔 Owner Dashboard</h1>
-              <p style={{ margin: '0.5rem 0 0 0', opacity: 0.9 }}>{user?.business_name || 'Loading...'}</p>
+              <h1 style={{ margin: 0, fontSize: '1.8rem' }}>👔 {user?.full_name ? `${user.full_name}'s Dashboard` : 'Owner Dashboard'}</h1>
+<p style={{ margin: '0.5rem 0 0 0', opacity: 0.9 }}>{user?.business_name || 'Loading...'}</p>
             </div>
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               <button onClick={() => setActiveTab('overview')} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Dashboard</button>

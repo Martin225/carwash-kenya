@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import { query, querySingle } from '../../../lib/db';
 
 export default async function handler(req, res) {
@@ -50,11 +51,14 @@ export default async function handler(req, res) {
 
       const branchId = branches[0].id;
 
+      // Hash the PIN
+      const hashedPin = await bcrypt.hash(pinCode, 10);
+
       const newStaff = await querySingle(
         `INSERT INTO staff (branch_id, full_name, phone_number, pin_code, role, commission_per_car, is_active)
          VALUES ($1, $2, $3, $4, 'washer', $5, true)
          RETURNING *`,
-        [branchId, fullName, phone, pinCode, parseFloat(commission) || 50]
+        [branchId, fullName, phone, hashedPin, parseFloat(commission) || 50]
       );
 
       console.log('=== NEW STAFF ADDED ===');

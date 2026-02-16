@@ -1,4 +1,5 @@
 import { querySingle } from '../../../lib/db';
+import bcrypt from 'bcryptjs';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -9,20 +10,38 @@ export default async function handler(req, res) {
     const { phone, pin } = req.body;
 
     const staff = await querySingle(
-      `SELECT s.*, b.business_id, b.branch_name, bus.business_name
-       FROM staff s
-       JOIN branches b ON s.branch_id = b.id
-       JOIN businesses bus ON b.business_id = bus.id
-       WHERE s.phone_number = $1 AND s.pin_code = $2 AND s.is_active = true`,
-      [phone, pin]
-    );
+  `SELECT s.*, b.business_id, b.branch_name, bus.business_name
+   FROM staff s
+   JOIN branches b ON s.branch_id = b.id
+   JOIN businesses bus ON b.business_id = bus.id
+   WHERE s.phone_number = $1 AND s.is_active = true`,
+  [phone]
+);
 
-    if (!staff) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid phone number or PIN'
-      });
-    }
+if (!staff) {
+  return res.status(401).json({
+    success: false,
+    message: 'Invalid phone number or PIN'
+  });
+}
+
+// Check if PIN is hashed
+let pinMatch = false;
+
+if (staff.pin_code.startsWith('$2a$') || staff.pin_code.startsWith('$2b$')) {
+  // Hashed PIN - use bcrypt
+  pinMatch = await bcrypt.compare(pin, staff.pin_code);
+} else {
+  // Plain text PIN - direct comparison
+  pinMatch = (pin === staff.pin_code);
+}
+
+if (!pinMatch) {
+  return res.status(401).json({
+    success: false,
+    message: 'Invalid phone number or PIN'
+  });
+}
 
     const userData = {
       id: staff.id,

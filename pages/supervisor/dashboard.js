@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
+import { useToast } from '../../components/Toast';
 import { useAuth } from '../../lib/auth-context';
 
 export default function SupervisorDashboard() {
@@ -8,6 +9,7 @@ export default function SupervisorDashboard() {
   const { user, logout } = useAuth();
   const [bays, setBays] = useState([]);
   const [error, setError] = useState('');
+  const { showToast, ToastContainer } = useToast();
   const [todayBookings, setTodayBookings] = useState([]);
   const [pendingApprovals, setPendingApprovals] = useState([]);
   const [staff, setStaff] = useState([]);
@@ -189,6 +191,7 @@ export default function SupervisorDashboard() {
       <Head>
         <title>Supervisor Dashboard - CarWash Pro Kenya</title>
       </Head>
+    <ToastContainer />
 
       <div style={{ fontFamily: 'system-ui', minHeight: '100vh', background: '#f5f5f5' }}>
         <div style={{ background: 'linear-gradient(135deg, #006633 0%, #004d26 100%)', color: 'white', padding: '1rem 2rem', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
