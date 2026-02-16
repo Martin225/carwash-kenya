@@ -6,12 +6,23 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { vehicleReg, phone, customerName, vehicleType, serviceId, bayId, staffId, businessId } = req.body;
+    // Get and sanitize input - convert empty strings to null for database
+    let { vehicleReg, phone, customerName, vehicleType, serviceId, bayId, staffId, businessId } = req.body;
+    
+    // Convert empty strings to null for integer fields
+    serviceId = (serviceId === '' || serviceId === undefined || serviceId === null) ? null : parseInt(serviceId);
+    bayId = (bayId === '' || bayId === undefined || bayId === null) ? null : parseInt(bayId);
+    staffId = (staffId === '' || staffId === undefined || staffId === null) ? null : parseInt(staffId);
+    businessId = (businessId === '' || businessId === undefined || businessId === null) ? null : parseInt(businessId);
 
     console.log('=== WALK-IN REGISTRATION START ===');
     console.log('Vehicle:', vehicleReg);
     console.log('Phone:', phone);
     console.log('Customer:', customerName);
+    console.log('Vehicle Type:', vehicleType);
+    console.log('Service ID:', serviceId);
+    console.log('Bay ID:', bayId);
+    console.log('Staff ID:', staffId);
     console.log('Business ID:', businessId);
     console.log('==================================');
 
@@ -19,7 +30,7 @@ export default async function handler(req, res) {
     if (!vehicleReg || !phone || !serviceId || !businessId) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Missing required fields' 
+        message: 'Missing required fields: vehicle registration, phone, service, and business ID are required' 
       });
     }
 
@@ -39,17 +50,16 @@ export default async function handler(req, res) {
     const branchId = branches[0].id;
     console.log('Branch ID:', branchId);
 
-// Find existing customer by phone (one customer can have multiple cars!)
+    // Find existing customer by phone (one customer can have multiple cars!)
     let customer = null;
     
-    // Try to find customer with either phone or phone_number column
     try {
       const customers = await query(
         `SELECT * FROM customers 
          WHERE (phone = $1 OR phone_number = $1)
-         ${businessId ? 'AND (business_id = $2 OR business_id IS NULL)' : ''}
+         AND (business_id = $2 OR business_id IS NULL)
          LIMIT 1`,
-        businessId ? [phone, businessId] : [phone]
+        [phone, businessId]
       );
       
       if (customers && customers.length > 0) {
@@ -127,15 +137,10 @@ export default async function handler(req, res) {
         
         // Check if vehicle belongs to this customer
         if (vehicle.customer_id !== customer.id) {
-          // Vehicle belongs to DIFFERENT customer
           console.log('WARNING: Vehicle belongs to different customer!');
           console.log('Vehicle owner:', vehicle.customer_id, 'Current customer:', customer.id);
           
-          // Option 1: Transfer vehicle to new customer (if previous customer typo)
-          // Option 2: Reject (someone trying to register another person's car)
-          
-          // For now, let's UPDATE the vehicle to belong to the current customer
-          // This handles cases where phone number changed or customer merged
+          // Transfer vehicle to current customer (handles phone number changes)
           await query(
             'UPDATE vehicles SET customer_id = $1 WHERE id = $2',
             [customer.id, vehicle.id]
@@ -162,7 +167,7 @@ export default async function handler(req, res) {
         console.log('New vehicle created:', vehicle.id, 'for customer:', customer.id);
       } catch (insertError) {
         // Last resort: if insert fails, try to find ANY vehicle with this reg number
-        console.log('Vehicle insert failed, fetching existing vehicle...');
+        console.log('Vehicle insert failed, fetching existing vehicle...', insertError.message);
         vehicle = await querySingle(
           'SELECT * FROM vehicles WHERE registration_number = $1',
           [vehicleReg]
@@ -215,22 +220,59 @@ export default async function handler(req, res) {
     const queueNumber = (parseInt(todayCount[0]?.count) || 0) + 1;
     console.log('Queue number:', queueNumber);
 
-    // Create booking
-    const booking = await querySingle(
-      `INSERT INTO bookings (
+    // Create booking - handle optional bayId and staffId properly
+    let bookingSql = '';
+    let bookingParams = [];
+    
+    if (bayId && staffId) {
+      // Both bay and staff provided
+      bookingSql = `INSERT INTO bookings (
         branch_id, customer_id, vehicle_id, service_id,
         booking_date, booking_time,
         total_amount, final_amount,
         status, payment_status, booking_source,
         bay_id, assigned_staff_id, created_at
       ) VALUES ($1, $2, $3, $4, NOW(), NOW(), $5, $6, 'pending', 'unpaid', 'walkin', $7, $8, NOW())
-      RETURNING *`,
-      [branchId, customer.id, vehicle.id, serviceId, finalAmount, finalAmount, bayId, staffId]
-    );
+      RETURNING *`;
+      bookingParams = [branchId, customer.id, vehicle.id, serviceId, finalAmount, finalAmount, bayId, staffId];
+    } else if (bayId && !staffId) {
+      // Only bay provided
+      bookingSql = `INSERT INTO bookings (
+        branch_id, customer_id, vehicle_id, service_id,
+        booking_date, booking_time,
+        total_amount, final_amount,
+        status, payment_status, booking_source,
+        bay_id, created_at
+      ) VALUES ($1, $2, $3, $4, NOW(), NOW(), $5, $6, 'pending', 'unpaid', 'walkin', $7, NOW())
+      RETURNING *`;
+      bookingParams = [branchId, customer.id, vehicle.id, serviceId, finalAmount, finalAmount, bayId];
+    } else if (!bayId && staffId) {
+      // Only staff provided
+      bookingSql = `INSERT INTO bookings (
+        branch_id, customer_id, vehicle_id, service_id,
+        booking_date, booking_time,
+        total_amount, final_amount,
+        status, payment_status, booking_source,
+        assigned_staff_id, created_at
+      ) VALUES ($1, $2, $3, $4, NOW(), NOW(), $5, $6, 'pending', 'unpaid', 'walkin', $7, NOW())
+      RETURNING *`;
+      bookingParams = [branchId, customer.id, vehicle.id, serviceId, finalAmount, finalAmount, staffId];
+    } else {
+      // Neither bay nor staff provided (queued only)
+      bookingSql = `INSERT INTO bookings (
+        branch_id, customer_id, vehicle_id, service_id,
+        booking_date, booking_time,
+        total_amount, final_amount,
+        status, payment_status, booking_source, created_at
+      ) VALUES ($1, $2, $3, $4, NOW(), NOW(), $5, $6, 'pending', 'unpaid', 'walkin', NOW())
+      RETURNING *`;
+      bookingParams = [branchId, customer.id, vehicle.id, serviceId, finalAmount, finalAmount];
+    }
 
+    const booking = await querySingle(bookingSql, bookingParams);
     console.log('Booking created:', booking.id);
 
-    // Update bay status if bay provided (bay is now optional!)
+    // Update bay status if bay provided
     if (bayId) {
       try {
         await query(
@@ -245,7 +287,7 @@ export default async function handler(req, res) {
         console.log('Bay update failed (non-critical):', bayError.message);
       }
     } else {
-      console.log('No bay assigned - car queued to staff');
+      console.log('No bay assigned - car queued');
     }
 
     // Update customer stats
@@ -278,6 +320,7 @@ export default async function handler(req, res) {
     console.log('Queue #:', queueNumber);
     console.log('Vehicle:', vehicleReg);
     console.log('Bay:', bayNumber);
+    console.log('Staff ID:', staffId || 'Not assigned');
     console.log('Amount: Kshs', finalAmount);
     console.log('======================================');
 
