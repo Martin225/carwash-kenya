@@ -1,4 +1,5 @@
 import { query, querySingle } from '../../../lib/db';
+import { sendSMS } from '../../../lib/sms';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -18,7 +19,8 @@ export default async function handler(req, res) {
     // Get booking details
     const booking = await querySingle(
       `SELECT b.*, c.phone_number as customer_phone, c.full_name as customer_name,
-              v.registration_number, s.service_name, bus.business_name
+              COALESCE(v.registration_number, 'Walk-in Service') as registration_number, 
+              s.service_name, bus.business_name
        FROM bookings b
        JOIN customers c ON b.customer_id = c.id
        LEFT JOIN vehicles v ON b.vehicle_id = v.id
@@ -64,12 +66,33 @@ export default async function handler(req, res) {
     console.log('Phone:', booking.customer_phone);
     console.log('========================');
 
-    // TODO: Send SMS here (we'll add this tomorrow!)
-    // await sendSMS(booking.customer_phone, `Thank you for choosing ${booking.business_name}!...`);
+    // SEND SMS - THIS IS THE CRITICAL PART!
+    console.log('🚀 ABOUT TO SEND SMS...');
+    
+    const smsMessage = `Thank you for choosing ${booking.business_name}!\n\nVehicle: ${booking.registration_number}\nService: ${booking.service_name}\nAmount: Kshs ${booking.final_amount}\n\nWe look forward to serving you again! 🚗✨`;
+
+    let smsResult = { success: false, error: 'SMS not attempted' };
+    
+    try {
+      console.log('📱 Calling sendSMS function...');
+      smsResult = await sendSMS(booking.customer_phone, smsMessage);
+      console.log('📬 SMS function returned:', smsResult);
+    } catch (smsError) {
+      console.error('💥 SMS EXCEPTION:', smsError);
+      smsResult = { success: false, error: smsError.message };
+    }
+
+    if (smsResult.success) {
+      console.log('✅ SMS sent successfully!');
+    } else {
+      console.error('❌ SMS failed:', smsResult.error);
+    }
 
     return res.status(200).json({
       success: true,
-      message: 'Payment recorded successfully!',
+      message: smsResult.success 
+        ? 'Payment recorded successfully! SMS sent to customer.' 
+        : 'Payment recorded but SMS failed to send.',
       booking: {
         id: booking.id,
         customer_name: booking.customer_name,
@@ -77,13 +100,15 @@ export default async function handler(req, res) {
         vehicle_reg: booking.registration_number,
         service_name: booking.service_name,
         amount: booking.final_amount
-      }
+      },
+      sms: smsResult
     });
   } catch (error) {
-    console.error('Record payment error:', error);
+    console.error('💥 RECORD PAYMENT ERROR:', error);
+    console.error('Stack:', error.stack);
     return res.status(500).json({
       success: false,
-      message: 'Failed to record payment'
+      message: 'Failed to record payment: ' + error.message
     });
   }
 }
