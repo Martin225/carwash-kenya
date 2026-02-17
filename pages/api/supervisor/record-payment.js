@@ -16,7 +16,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // Get booking details
     const booking = await querySingle(
       `SELECT b.*, c.phone_number as customer_phone, c.full_name as customer_name,
               COALESCE(v.registration_number, 'Walk-in Service') as registration_number, 
@@ -32,20 +31,13 @@ export default async function handler(req, res) {
     );
 
     if (!booking) {
-      return res.status(404).json({
-        success: false,
-        message: 'Booking not found'
-      });
+      return res.status(404).json({ success: false, message: 'Booking not found' });
     }
 
     if (booking.payment_status === 'paid') {
-      return res.status(400).json({
-        success: false,
-        message: 'Payment already recorded for this booking'
-      });
+      return res.status(400).json({ success: false, message: 'Payment already recorded' });
     }
 
-    // Update booking with payment details
     await query(
       `UPDATE bookings 
        SET payment_status = 'paid',
@@ -61,51 +53,36 @@ export default async function handler(req, res) {
     console.log('=== PAYMENT RECORDED ===');
     console.log('Booking ID:', bookingId);
     console.log('Payment Method:', paymentMethod);
-    console.log('Reference:', paymentReference);
     console.log('Customer:', booking.customer_name);
     console.log('Phone:', booking.customer_phone);
     console.log('========================');
 
-    // SEND SMS - THIS IS THE CRITICAL PART!
+    // Send SMS
     console.log('🚀 ABOUT TO SEND SMS...');
-    
     const smsMessage = `Thank you for choosing ${booking.business_name}!\n\nVehicle: ${booking.registration_number}\nService: ${booking.service_name}\nAmount: Kshs ${booking.final_amount}\n\nWe look forward to serving you again! 🚗✨`;
 
-    let smsResult = { success: false, error: 'SMS not attempted' };
-    
+    let smsResult = { success: false };
     try {
-      console.log('📱 Calling sendSMS function...');
       smsResult = await sendSMS(booking.customer_phone, smsMessage);
-      console.log('📬 SMS function returned:', smsResult);
     } catch (smsError) {
-      console.error('💥 SMS EXCEPTION:', smsError);
-      smsResult = { success: false, error: smsError.message };
-    }
-
-    if (smsResult.success) {
-      console.log('✅ SMS sent successfully!');
-    } else {
-      console.error('❌ SMS failed:', smsResult.error);
+      console.error('SMS Exception:', smsError.message);
     }
 
     return res.status(200).json({
       success: true,
-      message: smsResult.success 
-        ? 'Payment recorded successfully! SMS sent to customer.' 
-        : 'Payment recorded but SMS failed to send.',
+      message: smsResult.success
+        ? 'Payment recorded! SMS sent to customer.'
+        : 'Payment recorded! (SMS pending)',
       booking: {
         id: booking.id,
         customer_name: booking.customer_name,
-        customer_phone: booking.customer_phone,
         vehicle_reg: booking.registration_number,
-        service_name: booking.service_name,
         amount: booking.final_amount
-      },
-      sms: smsResult
+      }
     });
+
   } catch (error) {
-    console.error('💥 RECORD PAYMENT ERROR:', error);
-    console.error('Stack:', error.stack);
+    console.error('Record payment error:', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to record payment: ' + error.message
