@@ -2,13 +2,17 @@ import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../lib/auth-context';
+import { useToast } from '../../components/Toast';
 
 export default function StaffDashboard() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { showToast, ToastContainer } = useToast();
   const [jobs, setJobs] = useState([]);
   const [stats, setStats] = useState({ todayJobs: 0, completed: 0, earnings: 0 });
   const [loading, setLoading] = useState(true);
+  const [confirmJobId, setConfirmJobId] = useState(null);
+  const [completing, setCompleting] = useState(false);
 
   useEffect(() => {
     if (user && user.id) {
@@ -42,8 +46,7 @@ export default function StaffDashboard() {
   }
 
   async function markComplete(jobId) {
-    if (!confirm('Mark this job as complete?')) return;
-
+    setCompleting(true);
     try {
       const response = await fetch('/api/staff/complete-job', {
         method: 'POST',
@@ -53,11 +56,16 @@ export default function StaffDashboard() {
 
       const data = await response.json();
       if (data.success) {
-        alert('✅ Job marked as complete!');
+        showToast('✅ Job marked as complete!', 'success');
+        setConfirmJobId(null);
         loadJobs();
+      } else {
+        showToast(data.message || 'Failed to update job', 'error');
       }
     } catch (error) {
-      alert('Failed to update job');
+      showToast('Network error. Please try again.', 'error');
+    } finally {
+      setCompleting(false);
     }
   }
 
@@ -65,6 +73,7 @@ export default function StaffDashboard() {
     return (
       <>
         <Head><title>Staff Dashboard - CarWash Pro Kenya</title></Head>
+        <ToastContainer />
         <div style={{ fontFamily: 'system-ui', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #006633 0%, #004d26 100%)' }}>
           <div style={{ textAlign: 'center', color: 'white' }}>
             <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>⏳</div>
@@ -78,6 +87,7 @@ export default function StaffDashboard() {
   return (
     <>
       <Head><title>Staff Dashboard - CarWash Pro Kenya</title></Head>
+      <ToastContainer />
 
       <div style={{ fontFamily: 'system-ui', minHeight: '100vh', background: '#f5f5f5', paddingBottom: '2rem' }}>
         <div style={{ background: 'linear-gradient(135deg, #006633 0%, #004d26 100%)', color: 'white', padding: '1rem', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
@@ -109,7 +119,9 @@ export default function StaffDashboard() {
           </div>
 
           <div>
-            <h2 style={{ margin: '0 0 1rem 0', color: '#006633', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>📋 Assigned Jobs ({jobs.length})</h2>
+            <h2 style={{ margin: '0 0 1rem 0', color: '#006633', fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              📋 Assigned Jobs ({jobs.length})
+            </h2>
 
             {jobs.length === 0 ? (
               <div style={{ background: 'white', padding: '3rem 1rem', borderRadius: '12px', textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
@@ -146,7 +158,12 @@ export default function StaffDashboard() {
                     </div>
 
                     {job.status !== 'completed' && (
-                      <button onClick={() => markComplete(job.id)} style={{ width: '100%', background: '#4caf50', color: 'white', border: 'none', padding: '1rem', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' }}>✓ Mark as Complete</button>
+                      <button
+                        onClick={() => setConfirmJobId(job.id)}
+                        style={{ width: '100%', background: '#4caf50', color: 'white', border: 'none', padding: '1rem', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' }}
+                      >
+                        ✓ Mark as Complete
+                      </button>
                     )}
                   </div>
                 ))}
@@ -155,6 +172,33 @@ export default function StaffDashboard() {
           </div>
         </div>
       </div>
+
+      {/* BEAUTIFUL CONFIRM MODAL - replaces ugly browser confirm() */}
+      {confirmJobId && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div style={{ background: 'white', padding: '2rem', borderRadius: '20px', maxWidth: '400px', width: '100%', textAlign: 'center' }}>
+            <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>✅</div>
+            <h2 style={{ color: '#006633', marginBottom: '0.5rem' }}>Mark Job Complete?</h2>
+            <p style={{ color: '#666', marginBottom: '1.5rem' }}>
+              This will notify the supervisor that the job is done and ready for payment collection.
+            </p>
+            <button
+              onClick={() => markComplete(confirmJobId)}
+              disabled={completing}
+              style={{ width: '100%', background: completing ? '#ccc' : '#4caf50', color: 'white', border: 'none', padding: '1rem', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold', cursor: completing ? 'not-allowed' : 'pointer', marginBottom: '0.75rem' }}
+            >
+              {completing ? '⏳ Updating...' : '✓ Yes, Mark Complete!'}
+            </button>
+            <button
+              onClick={() => setConfirmJobId(null)}
+              disabled={completing}
+              style={{ width: '100%', background: '#f0f0f0', color: '#666', border: 'none', padding: '0.75rem', borderRadius: '8px', cursor: 'pointer', fontSize: '1rem' }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
