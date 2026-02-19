@@ -5,7 +5,7 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       const { businessId } = req.query;
-
+      
       if (!businessId) {
         return res.status(400).json({ success: false, message: 'Business ID required' });
       }
@@ -85,6 +85,34 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true });
     } catch (error) {
       return res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  if (req.method === 'DELETE') {
+    try {
+      const { staffId } = req.body;
+
+      if (!staffId) {
+        return res.status(400).json({ success: false, message: 'Staff ID required' });
+      }
+
+      // Delete staff permanently from staff table
+      await query('DELETE FROM staff WHERE id = $1', [staffId]);
+
+      console.log('=== STAFF DELETED ===');
+      console.log('Staff ID:', staffId);
+      console.log('====================');
+
+      return res.status(200).json({
+        success: true,
+        message: 'Staff deleted permanently'
+      });
+    } catch (error) {
+      console.error('Delete staff error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to delete staff'
+      });
     }
   }
 

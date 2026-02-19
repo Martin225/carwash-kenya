@@ -1,9 +1,18 @@
-﻿import { AuthProvider } from '../lib/auth-context';
+﻿import Head from 'next/head';
+import { AuthProvider } from '../lib/auth-context';
 
-export default function App({ Component, pageProps }) {
+function MyApp({ Component, pageProps }) {
   return (
-    <AuthProvider>
-      <Component {...pageProps} />
-    </AuthProvider>
+    <>
+      <Head>
+        <link rel="icon" href="/favicon.ico" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico" />
+      </Head>
+      <AuthProvider>
+        <Component {...pageProps} />
+      </AuthProvider>
+    </>
   );
 }
+
+export default MyApp;

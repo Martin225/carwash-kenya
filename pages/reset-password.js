@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import PasswordInput from '../components/PasswordInput';
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -127,21 +128,13 @@ export default function ResetPasswordPage() {
               <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
                 New Password
               </label>
-              <input
-                type="password"
+              <PasswordInput
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength="6"
                 placeholder="Enter new password"
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: '2px solid #e0e0e0',
-                  borderRadius: '8px',
-                  fontSize: '1rem',
-                  boxSizing: 'border-box'
-                }}
+                required
+                name="newPassword"
+                autoComplete="new-password"
               />
             </div>
 
@@ -149,21 +142,13 @@ export default function ResetPasswordPage() {
               <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
                 Confirm Password
               </label>
-              <input
-                type="password"
+              <PasswordInput
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                minLength="6"
                 placeholder="Confirm new password"
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: '2px solid #e0e0e0',
-                  borderRadius: '8px',
-                  fontSize: '1rem',
-                  boxSizing: 'border-box'
-                }}
+                required
+                name="confirmPassword"
+                autoComplete="new-password"
               />
             </div>
 

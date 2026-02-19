@@ -219,6 +219,11 @@ export default function SupervisorDashboard() {
     b.status === 'in-progress'
   );
 
+  // Get paid bookings from today
+  const paidBookings = todayBookings.filter(b => 
+    b.payment_status === 'paid'
+  );
+
   if (loading) {
     return (
       <>
@@ -268,6 +273,7 @@ export default function SupervisorDashboard() {
       <ToastContainer />
 
       <div style={{ fontFamily: 'system-ui', minHeight: '100vh', background: '#f5f5f5' }}>
+        {/* HEADER */}
         <div style={{ background: 'linear-gradient(135deg, #006633 0%, #004d26 100%)', color: 'white', padding: '1rem 2rem', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
@@ -286,6 +292,7 @@ export default function SupervisorDashboard() {
         </div>
 
         <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto' }}>
+          {/* STATS CARDS */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
             {[
               { label: 'Cars Today', value: stats.carsToday, icon: '🚗', color: '#006633' },
@@ -301,6 +308,7 @@ export default function SupervisorDashboard() {
             ))}
           </div>
 
+          {/* BAY STATUS */}
           <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
             <h2 style={{ margin: '0 0 1.5rem 0', color: '#006633' }}>🚙 Bay Status</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
@@ -323,7 +331,7 @@ export default function SupervisorDashboard() {
             </div>
           </div>
 
-          {/* ACTIVE BOOKINGS WITH PAYMENT RECORDING */}
+          {/* ACTIVE BOOKINGS (UNPAID) */}
           <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
             <h2 style={{ margin: '0 0 1.5rem 0', color: '#006633' }}>💼 Active Bookings ({activeBookings.length})</h2>
             {activeBookings.length === 0 ? (
@@ -359,22 +367,20 @@ export default function SupervisorDashboard() {
                           </span>
                         )}
                       </div>
-                      <div>
-                        <span style={{ 
-                          background: booking.payment_status === 'paid' ? '#e8f5e9' : '#fff3e0',
-                          color: booking.payment_status === 'paid' ? '#2e7d32' : '#f57c00',
-                          padding: '0.5rem 1rem', 
-                          borderRadius: '20px', 
-                          fontSize: '0.9rem', 
-                          fontWeight: 'bold',
-                          display: 'inline-block'
-                        }}>
-                          {booking.payment_status === 'paid' ? '✅ PAID' : '⏳ UNPAID'}
-                        </span>
-                      </div>
+                      <span style={{ 
+                        background: '#fff3e0',
+                        color: '#f57c00',
+                        padding: '0.5rem 1rem', 
+                        borderRadius: '20px', 
+                        fontSize: '0.9rem', 
+                        fontWeight: 'bold',
+                        display: 'inline-block'
+                      }}>
+                        ⏳ UNPAID
+                      </span>
                     </div>
 
-                    {booking.status === 'completed' && booking.payment_status !== 'paid' && (
+                    {booking.status === 'completed' && (
                       <button 
                         onClick={() => {
                           setSelectedBooking(booking);
@@ -395,24 +401,75 @@ export default function SupervisorDashboard() {
                         💳 RECORD PAYMENT
                       </button>
                     )}
-
-                    {booking.payment_status === 'paid' && (
-                      <div style={{ background: '#e8f5e9', padding: '0.75rem', borderRadius: '8px', marginTop: '1rem' }}>
-                        <div style={{ fontSize: '0.9rem', color: '#2e7d32', fontWeight: 'bold' }}>
-                          ✅ Payment Received
-                        </div>
-                        <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.25rem' }}>
-                          Method: {booking.payment_method?.replace('_', ' ').toUpperCase()}
-                          {booking.payment_reference && ` • Ref: ${booking.payment_reference}`}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>
             )}
           </div>
 
+          {/* PAID BOOKINGS TODAY */}
+          {paidBookings.length > 0 && (
+            <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+              <h2 style={{ margin: '0 0 1.5rem 0', color: '#006633' }}>✅ Paid Today ({paidBookings.length})</h2>
+              <div style={{ display: 'grid', gap: '1.5rem' }}>
+                {paidBookings.map((booking) => (
+                  <div key={booking.id} style={{ background: '#f9fff9', padding: '1.5rem', border: '2px solid #e8f5e9', borderRadius: '12px', borderLeft: '4px solid #4caf50' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+                      <div style={{ flex: 1 }}>
+                        <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.2rem' }}>
+                          {booking.vehicle_reg ? `🚗 ${booking.vehicle_reg}` : '📦 Walk-in Service'}
+                        </h3>
+                        <div style={{ color: '#666', marginBottom: '0.5rem' }}>
+                          <p style={{ margin: '0.25rem 0' }}>👤 {booking.customer_name}</p>
+                          <p style={{ margin: '0.25rem 0' }}>📞 {booking.phone}</p>
+                          <p style={{ margin: '0.25rem 0' }}>🧼 {booking.service_name}</p>
+                          <p style={{ margin: '0.25rem 0', fontWeight: 'bold', color: '#006633', fontSize: '1.1rem' }}>
+                            💰 Kshs {booking.final_amount}
+                          </p>
+                          <p style={{ margin: '0.25rem 0', fontSize: '0.9rem', color: '#666' }}>
+                            💳 {booking.payment_method?.replace('_', ' ').toUpperCase()}
+                            {booking.payment_reference && ` • ${booking.payment_reference}`}
+                          </p>
+                        </div>
+                      </div>
+                      <span style={{ 
+                        background: '#e8f5e9',
+                        color: '#2e7d32',
+                        padding: '0.5rem 1rem', 
+                        borderRadius: '20px', 
+                        fontSize: '0.9rem', 
+                        fontWeight: 'bold'
+                      }}>
+                        ✅ PAID
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        window.open(`/api/generate-receipt?bookingId=${booking.id}`, '_blank');
+                        showToast('📄 Generating receipt...', 'success');
+                      }}
+                      style={{
+                        width: '100%',
+                        background: '#2196f3',
+                        color: 'white',
+                        border: 'none',
+                        padding: '1rem',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        fontSize: '1rem'
+                      }}
+                    >
+                      📄 Download Receipt
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* PENDING APPROVALS & TODAY'S SCHEDULE */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
             <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
               <h2 style={{ margin: '0 0 1rem 0', color: '#006633' }}>⏳ Pending Approvals ({pendingApprovals.length})</h2>

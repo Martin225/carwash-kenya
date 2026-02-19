@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../lib/auth-context';
+import PasswordInput from '../../components/PasswordInput';
 import { useToast } from '../../components/Toast';
 
 export default function OwnerDashboard() {
@@ -145,26 +146,50 @@ export default function OwnerDashboard() {
   }
 
   async function toggleSupervisor(supervisorId, currentStatus) {
-    const action = currentStatus ? 'deactivate' : 'activate';
-    
-    try {
-      const response = await fetch('/api/owner/supervisors', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ supervisorId, isActive: !currentStatus })
-      });
+  const action = currentStatus ? 'deactivate' : 'activate';
+  
+  try {
+    const response = await fetch('/api/owner/supervisors', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ supervisorId, isActive: !currentStatus })
+    });
 
-      const data = await response.json();
-      if (data.success) {
-        showToast(`Supervisor ${action}d successfully!`, 'success');
-        loadSupervisors();
-      } else {
-        showToast(data.message, 'error');
-      }
-    } catch (error) {
-      showToast('Failed to update supervisor', 'error');
+    const data = await response.json();
+    if (data.success) {
+      showToast(`Supervisor ${action}d successfully!`, 'success');
+      loadSupervisors();
+    } else {
+      showToast(data.message, 'error');
     }
+  } catch (error) {
+    showToast('Failed to update supervisor', 'error');
   }
+}
+
+async function deleteSupervisor(supervisorId, supervisorName) {
+  if (!confirm(`⚠️ DELETE ${supervisorName}?\n\nThis will permanently remove them from the system. They will NOT be able to login again.\n\nAre you absolutely sure?`)) {
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/owner/supervisors', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ supervisorId })
+    });
+
+    const data = await response.json();
+    if (data.success) {
+      showToast('✅ Supervisor deleted permanently', 'success');
+      loadSupervisors();
+    } else {
+      showToast(data.message, 'error');
+    }
+  } catch (error) {
+    showToast('Failed to delete supervisor', 'error');
+  }
+}
 
   async function handlePayment(e) {
     e.preventDefault();
@@ -463,12 +488,23 @@ export default function OwnerDashboard() {
                         </span>
                       </div>
                       <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '1rem' }}>
-                        <p style={{ margin: '0.5rem 0' }}>📧 {sup.email}</p>
-                        <p style={{ margin: '0.5rem 0' }}>📞 {sup.phone}</p>
-                      </div>
-                      <button onClick={() => toggleSupervisor(sup.id, sup.is_active)} style={{ width: '100%', padding: '0.75rem', background: sup.is_active ? '#f44336' : '#4caf50', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-                        {sup.is_active ? '✗ Deactivate' : '✓ Activate'}
-                      </button>
+  <p style={{ margin: '0.5rem 0' }}>📧 {sup.email}</p>
+  <p style={{ margin: '0.5rem 0' }}>📞 {sup.phone}</p>
+</div>
+<div style={{ display: 'flex', gap: '0.5rem' }}>
+  <button
+    onClick={() => toggleSupervisor(sup.id, sup.is_active)} 
+    style={{ flex: 1, padding: '0.75rem', background: sup.is_active ? '#ff9800' : '#4caf50', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}
+  >
+    {sup.is_active ? '⏸️ Deactivate' : '✓ Activate'}
+  </button>
+  <button 
+    onClick={() => deleteSupervisor(sup.id, sup.full_name)} 
+    style={{ flex: 1, padding: '0.75rem', background: '#f44336', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}
+  >
+    🗑️ Delete
+  </button>
+</div>
                     </div>
                   ))}
                 </div>

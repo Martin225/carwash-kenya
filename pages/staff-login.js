@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import PinInput from '../components/PinInput';
 import { useAuth } from '../lib/auth-context';
 
 export default function StaffLoginPage() {
@@ -73,7 +74,13 @@ export default function StaffLoginPage() {
 
               <div style={{ marginBottom: '1.5rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>4-Digit PIN</label>
-                <input type="password" value={formData.pin} onChange={(e) => setFormData({ ...formData, pin: e.target.value })} required placeholder="••••" maxLength="4" pattern="[0-9]{4}" style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1.5rem', boxSizing: 'border-box', textAlign: 'center', letterSpacing: '0.5rem' }} />
+                <PinInput
+  value={formData.pin}
+  onChange={(e) => setFormData({ ...formData, pin: e.target.value })}
+  placeholder="••••"
+  required
+  maxLength={4}
+ style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1.5rem', boxSizing: 'border-box', textAlign: 'center', letterSpacing: '0.5rem' }} />
               </div>
 
               <button type="submit" disabled={loading} style={{ width: '100%', padding: '1rem', background: loading ? '#ccc' : '#006633', color: 'white', border: 'none', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold', cursor: loading ? 'not-allowed' : 'pointer', marginBottom: '1rem' }}>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import PasswordInput from '../components/PasswordInput';
 import { useAuth } from '../lib/auth-context';
 
 export default function LoginPage() {
@@ -77,25 +78,45 @@ export default function LoginPage() {
             <form onSubmit={handleLogin}>
               <div style={{ marginBottom: '1.5rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Email Address</label>
-                <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required placeholder="you@example.com" style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} />
+                <input 
+                  type="email" 
+                  value={formData.email} 
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })} 
+                  required 
+                  placeholder="you@example.com" 
+                  style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} 
+                />
               </div>
 
               <div style={{ marginBottom: '1.5rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Password</label>
-                <input type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} required placeholder="••••••••" style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} />
+                <PasswordInput
+                  value={formData.password}
+                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  placeholder="Password"
+                  required
+                />
               </div>
 
-              <button type="submit" disabled={loading} style={{ width: '100%', padding: '1rem', background: loading ? '#ccc' : '#006633', color: 'white', border: 'none', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold', cursor: loading ? 'not-allowed' : 'pointer', marginBottom: '1rem' }}>
+              <button 
+                type="submit" 
+                disabled={loading} 
+                style={{ width: '100%', padding: '1rem', background: loading ? '#ccc' : '#006633', color: 'white', border: 'none', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold', cursor: loading ? 'not-allowed' : 'pointer', marginBottom: '1rem' }}
+              >
                 {loading ? 'Logging in...' : 'Login'}
               </button>
             </form>
 
             <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
-              <a href="/forgot-password" style={{ color: '#006633', textDecoration: 'none', fontSize: '0.95rem', fontWeight: '500' }}>Forgot your password?</a>
+              <a href="/forgot-password" style={{ color: '#006633', textDecoration: 'none', fontSize: '0.95rem', fontWeight: '500' }}>
+                Forgot your password?
+              </a>
             </div>
 
             <div style={{ textAlign: 'center', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #e0e0e0' }}>
-              <p style={{ color: '#666', margin: 0 }}>Don't have an account? <a href="/signup" style={{ color: '#006633', fontWeight: 'bold', textDecoration: 'none' }}>Start Free Trial</a></p>
+              <p style={{ color: '#666', margin: 0 }}>
+                Don't have an account? <a href="/signup" style={{ color: '#006633', fontWeight: 'bold', textDecoration: 'none' }}>Start Free Trial</a>
+              </p>
             </div>
 
             <div style={{ textAlign: 'center', marginTop: '1rem' }}>

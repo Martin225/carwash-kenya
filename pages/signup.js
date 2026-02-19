@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import PasswordInput from '../components/PasswordInput';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -98,28 +99,6 @@ export default function SignupPage() {
       </>
     );
   }
-{/* Logo/Home Link */}
-<div style={{
-  position: 'absolute',
-  top: '2rem',
-  left: '2rem'
-}}>
-  <a 
-    href="/"
-    style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: '0.5rem',
-      color: 'white',
-      textDecoration: 'none',
-      fontSize: '1.2rem',
-      fontWeight: 'bold'
-    }}
-  >
-    <span style={{ fontSize: '2rem' }}>🚗</span>
-    <span>CarWash Pro</span>
-  </a>
-</div>
 
   return (
     <>
@@ -132,8 +111,32 @@ export default function SignupPage() {
         display: 'flex',
         background: 'linear-gradient(135deg, #006633 0%, #004d26 100%)',
         fontFamily: 'system-ui',
-        padding: '2rem'
+        padding: '2rem',
+        position: 'relative'
       }}>
+        {/* Logo/Home Link */}
+        <div style={{
+          position: 'absolute',
+          top: '2rem',
+          left: '2rem'
+        }}>
+          <a 
+            href="/"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              color: 'white',
+              textDecoration: 'none',
+              fontSize: '1.2rem',
+              fontWeight: 'bold'
+            }}
+          >
+            <span style={{ fontSize: '2rem' }}>🚗</span>
+            <span>CarWash Pro</span>
+          </a>
+        </div>
+
         <div style={{ 
           flex: 1, 
           display: 'flex', 
@@ -277,21 +280,12 @@ export default function SignupPage() {
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
                   Password *
                 </label>
-                <input
-                  type="password"
+                <PasswordInput
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder="Choose a strong password (min 6 characters)"
                   required
-                  placeholder="Choose a strong password"
-                  minLength="6"
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: '2px solid #e0e0e0',
-                    borderRadius: '8px',
-                    fontSize: '1rem',
-                    boxSizing: 'border-box'
-                  }}
+                  autoComplete="new-password"
                 />
               </div>
 

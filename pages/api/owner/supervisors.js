@@ -5,7 +5,7 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       const { businessId } = req.query;
-
+      
       if (!businessId) {
         return res.status(400).json({ success: false, message: 'Business ID required' });
       }
@@ -78,6 +78,30 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true });
     } catch (error) {
       return res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  if (req.method === 'DELETE') {
+    try {
+      const { supervisorId } = req.body;
+
+      if (!supervisorId) {
+        return res.status(400).json({ success: false, message: 'Supervisor ID required' });
+      }
+
+      // Delete supervisor permanently
+      await query('DELETE FROM users WHERE id = $1 AND role = $2', [supervisorId, 'supervisor']);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Supervisor deleted permanently'
+      });
+    } catch (error) {
+      console.error('Delete supervisor error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to delete supervisor'
+      });
     }
   }
 

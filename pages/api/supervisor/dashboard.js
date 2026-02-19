@@ -45,19 +45,24 @@ export default async function handler(req, res) {
     `, [branchId]);
 
     const todayBookings = await query(`
-      SELECT 
-        bk.*,
-        v.registration_number as vehicle_reg,
-        c.full_name as customer_name,
-        s.service_name
-      FROM bookings bk
-      JOIN vehicles v ON bk.vehicle_id = v.id
-      JOIN customers c ON bk.customer_id = c.id
-      JOIN services s ON bk.service_id = s.id
-      WHERE bk.branch_id = $1
-        AND bk.booking_date = CURRENT_DATE
-      ORDER BY bk.booking_time
-    `, [branchId]);
+  SELECT 
+    bk.*,
+    COALESCE(v.registration_number, 'Walk-in') as vehicle_reg,
+    c.full_name as customer_name,
+    c.phone_number as phone,
+    s.service_name,
+    st.full_name as staff_name,
+    b.bay_number as bay_name
+  FROM bookings bk
+  LEFT JOIN vehicles v ON bk.vehicle_id = v.id
+  JOIN customers c ON bk.customer_id = c.id
+  JOIN services s ON bk.service_id = s.id
+  LEFT JOIN staff st ON bk.assigned_staff_id = st.id
+  LEFT JOIN bays b ON bk.bay_id = b.id
+  WHERE bk.branch_id = $1
+    AND bk.booking_date = CURRENT_DATE
+  ORDER BY bk.booking_time DESC
+`, [branchId]);
 
     const pendingApprovals = await query(`
       SELECT 
