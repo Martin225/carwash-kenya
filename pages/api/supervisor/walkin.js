@@ -7,7 +7,7 @@ export default async function handler(req, res) {
 
   try {
     // Get and sanitize input - convert empty strings to null for database
-    let { vehicleReg, phone, customerName, vehicleType, serviceId, bayId, staffId, businessId } = req.body;
+    let { vehicleReg, phone, customerName, vehicleType, serviceId, bayId, staffId, businessId, serviceCategory } = req.body;
     
     // Convert empty strings to null for integer fields
     serviceId = (serviceId === '' || serviceId === undefined || serviceId === null) ? null : parseInt(serviceId);
@@ -16,6 +16,7 @@ export default async function handler(req, res) {
     businessId = (businessId === '' || businessId === undefined || businessId === null) ? null : parseInt(businessId);
 
     console.log('=== WALK-IN REGISTRATION START ===');
+    console.log('Service Category:', serviceCategory);
     console.log('Vehicle:', vehicleReg);
     console.log('Phone:', phone);
     console.log('Customer:', customerName);
@@ -27,10 +28,18 @@ export default async function handler(req, res) {
     console.log('==================================');
 
     // Validate required fields
-    if (!vehicleReg || !phone || !serviceId || !businessId) {
+    if (!phone || !serviceId || !businessId) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Missing required fields: vehicle registration, phone, service, and business ID are required' 
+        message: 'Missing required fields: Phone, service, and business ID are required' 
+      });
+    }
+
+    // Vehicle reg required only for vehicle services
+    if (serviceCategory === 'vehicle_service' && !vehicleReg) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Vehicle registration is required for vehicle services' 
       });
     }
 
@@ -123,10 +132,10 @@ export default async function handler(req, res) {
       console.log('New customer created:', customer.id);
     }
 
-// Find or create vehicle (ONLY if vehicle type is not "none")
+    // Find or create vehicle (ONLY for vehicle services)
     let vehicle = null;
     
-    if (vehicleType !== 'none' && vehicleReg) {
+    if (serviceCategory === 'vehicle_service' && vehicleReg) {
       try {
         vehicle = await querySingle(
           'SELECT * FROM vehicles WHERE registration_number = $1',
@@ -178,32 +187,46 @@ export default async function handler(req, res) {
         }
       }
     } else {
-      console.log('No vehicle required - service only booking');
-    }
-    // Get service pricing
-    let pricing;
-    try {
-      pricing = await querySingle(
-        'SELECT base_price FROM service_pricing WHERE service_id = $1 AND vehicle_type = $2',
-        [serviceId, vehicleType || 'sedan']
-      );
-    } catch (e) {
-      // Fallback: get service base price directly
-      pricing = await querySingle(
-        'SELECT base_price FROM services WHERE id = $1',
-        [serviceId]
-      );
+      console.log('No vehicle required - other service booking');
     }
 
-    if (!pricing || !pricing.base_price) {
+    // Get service and pricing
+    let finalAmount;
+    
+    try {
+      // Get service details
+      const service = await querySingle(
+        'SELECT service_category, fixed_price FROM services WHERE id = $1',
+        [serviceId]
+      );
+
+      if (service.service_category === 'other_service') {
+        // Use fixed price for other services
+        finalAmount = parseFloat(service.fixed_price);
+        console.log('Other service - using fixed price:', finalAmount);
+      } else {
+        // Get vehicle type pricing for vehicle services
+        const pricing = await querySingle(
+          'SELECT base_price FROM service_pricing WHERE service_id = $1 AND vehicle_type = $2',
+          [serviceId, vehicleType || 'sedan']
+        );
+        
+        if (!pricing || !pricing.base_price) {
+          throw new Error('Vehicle service pricing not found');
+        }
+        
+        finalAmount = parseFloat(pricing.base_price);
+        console.log('Vehicle service - using vehicle type price:', finalAmount);
+      }
+    } catch (pricingError) {
+      console.error('Pricing error:', pricingError.message);
       return res.status(400).json({ 
         success: false, 
         message: 'Service pricing not found. Please contact admin.' 
       });
     }
 
-    const finalAmount = pricing.base_price;
-    console.log('Service amount:', finalAmount);
+    console.log('Final amount:', finalAmount);
 
     // Generate queue number
     const todayCount = await query(
@@ -214,7 +237,7 @@ export default async function handler(req, res) {
     const queueNumber = (parseInt(todayCount[0]?.count) || 0) + 1;
     console.log('Queue number:', queueNumber);
 
-// Create booking - handle optional vehicle
+    // Create booking - handle optional vehicle
     let bookingSql = '';
     let bookingParams = [];
     
@@ -268,21 +291,25 @@ export default async function handler(req, res) {
     }
 
     const booking = await querySingle(bookingSql, bookingParams);
-    console.log('Booking created:', booking.id, 'Vehicle:', vehicle ? vehicle.id : 'None');
-    // Update bay status if bay provided
-    if (bayId) {
+    console.log('Booking created:', booking.id, 'Vehicle:', vehicle ? vehicle.id : 'None (other service)');
+
+    // Update bay status if bay provided (only for vehicle services)
+    if (bayId && serviceCategory === 'vehicle_service') {
       try {
         await query(
           `UPDATE bays 
            SET status = 'occupied', 
-               current_booking_id = $1
-           WHERE id = $2`,
-          [booking.id, bayId]
+               current_booking_id = $1,
+               current_staff_id = $2
+           WHERE id = $3`,
+          [booking.id, staffId, bayId]
         );
         console.log('Bay updated:', bayId);
       } catch (bayError) {
         console.log('Bay update failed (non-critical):', bayError.message);
       }
+    } else if (serviceCategory === 'other_service') {
+      console.log('Other service - no bay needed');
     } else {
       console.log('No bay assigned - car queued');
     }
@@ -303,8 +330,8 @@ export default async function handler(req, res) {
     console.log('Customer stats updated');
 
     // Get bay number for response
-    let bayNumber = 'N/A';
-    if (bayId) {
+    let bayNumber = serviceCategory === 'other_service' ? 'N/A (other service)' : 'N/A';
+    if (bayId && serviceCategory === 'vehicle_service') {
       try {
         const bay = await querySingle('SELECT bay_number FROM bays WHERE id = $1', [bayId]);
         bayNumber = bay?.bay_number || 'N/A';
@@ -313,9 +340,10 @@ export default async function handler(req, res) {
       }
     }
 
-    console.log('=== WALK-IN REGISTERED SUCCESSFULLY ===');
+    console.log('=== REGISTRATION SUCCESSFUL ===');
+    console.log('Category:', serviceCategory);
     console.log('Queue #:', queueNumber);
-    console.log('Vehicle:', vehicleReg);
+    console.log('Vehicle:', vehicleReg || 'N/A (other service)');
     console.log('Bay:', bayNumber);
     console.log('Staff ID:', staffId || 'Not assigned');
     console.log('Amount: Kshs', finalAmount);
@@ -329,13 +357,14 @@ export default async function handler(req, res) {
       amount: finalAmount,
       booking: {
         id: booking.id,
-        vehicleReg,
+        vehicleReg: vehicleReg || null,
         customerName: customerName || 'Walk-in Customer',
-        phone
+        phone,
+        serviceCategory
       }
     });
   } catch (error) {
-    console.error('❌ WALK-IN ERROR:', error);
+    console.error('❌ REGISTRATION ERROR:', error);
     console.error('Error details:', error.message);
     console.error('Stack:', error.stack);
     

@@ -130,43 +130,63 @@ export default function StaffDashboard() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {jobs.map((job) => (
-                  <div key={job.id} style={{ background: 'white', padding: '1.25rem', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', borderLeft: `4px solid ${job.status === 'completed' ? '#4caf50' : job.status === 'in-progress' ? '#ff9800' : '#2196f3'}` }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                      <div>
-                        <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: '#006633', marginBottom: '0.25rem' }}>🚗 {job.vehicle_reg}</div>
-                        <div style={{ fontSize: '0.9rem', color: '#666' }}>Bay {job.bay_number}</div>
+                {jobs.map((job) => {
+                  const isOtherService = !job.vehicle_reg;
+                  
+                  return (
+                    <div key={job.id} style={{ background: 'white', padding: '1.25rem', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', borderLeft: `4px solid ${job.status === 'completed' ? '#4caf50' : job.status === 'in-progress' ? '#ff9800' : '#2196f3'}` }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                        <div>
+                          <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: '#006633', marginBottom: '0.25rem' }}>
+                            {isOtherService ? '🏠 Other Service' : `🚗 ${job.vehicle_reg}`}
+                          </div>
+                          {job.bay_number && (
+                            <div style={{ fontSize: '0.9rem', color: '#666' }}>Bay {job.bay_number}</div>
+                          )}
+                        </div>
+                        <div style={{ background: job.status === 'completed' ? '#e8f5e9' : '#fff3e0', color: job.status === 'completed' ? '#2e7d32' : '#f57c00', padding: '0.5rem 1rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                          {job.status === 'completed' ? '✅ Done' : '⏳ Active'}
+                        </div>
                       </div>
-                      <div style={{ background: job.status === 'completed' ? '#e8f5e9' : '#fff3e0', color: job.status === 'completed' ? '#2e7d32' : '#f57c00', padding: '0.5rem 1rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                        {job.status === 'completed' ? '✅ Done' : '⏳ Active'}
-                      </div>
-                    </div>
 
-                    <div style={{ background: '#f9f9f9', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
-                      <div style={{ marginBottom: '0.5rem' }}>
-                        <span style={{ color: '#666', fontSize: '0.9rem' }}>Service: </span>
-                        <strong>{job.service_name}</strong>
+                      <div style={{ background: '#f9f9f9', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
+                        <div style={{ marginBottom: '0.5rem' }}>
+                          <span style={{ color: '#666', fontSize: '0.9rem' }}>Service: </span>
+                          <strong>{job.service_name}</strong>
+                        </div>
+                        <div style={{ marginBottom: '0.5rem' }}>
+                          <span style={{ color: '#666', fontSize: '0.9rem' }}>Customer: </span>
+                          <strong>{job.customer_name}</strong>
+                        </div>
+                        <div style={{ marginBottom: '0.5rem' }}>
+                          <span style={{ color: '#666', fontSize: '0.9rem' }}>Time: </span>
+                          <strong>{job.booking_time}</strong>
+                        </div>
+                        {job.customer_phone && (
+                          <div>
+                            <span style={{ color: '#666', fontSize: '0.9rem' }}>Phone: </span>
+                            <strong>{job.customer_phone}</strong>
+                          </div>
+                        )}
                       </div>
-                      <div style={{ marginBottom: '0.5rem' }}>
-                        <span style={{ color: '#666', fontSize: '0.9rem' }}>Customer: </span>
-                        <strong>{job.customer_name}</strong>
-                      </div>
-                      <div>
-                        <span style={{ color: '#666', fontSize: '0.9rem' }}>Time: </span>
-                        <strong>{job.booking_time}</strong>
-                      </div>
-                    </div>
 
-                    {job.status !== 'completed' && (
-                      <button
-                        onClick={() => setConfirmJobId(job.id)}
-                        style={{ width: '100%', background: '#4caf50', color: 'white', border: 'none', padding: '1rem', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' }}
-                      >
-                        ✓ Mark as Complete
-                      </button>
-                    )}
-                  </div>
-                ))}
+                      {isOtherService && (
+                        <div style={{ background: '#e8f5e9', padding: '0.75rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.85rem', color: '#2e7d32' }}>
+                          💡 <strong>Other Service:</strong> No bay required. Perform service at customer's location.
+                        </div>
+                      )}
+
+                      {job.status !== 'completed' && (
+                        <button
+                          onClick={() => setConfirmJobId(job.id)}
+                          style={{ width: '100%', background: '#4caf50', color: 'white', border: 'none', padding: '1rem', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' }}
+                        >
+                          ✓ Mark as Complete
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
