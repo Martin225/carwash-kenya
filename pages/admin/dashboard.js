@@ -16,6 +16,9 @@ export default function AdminDashboard() {
     monthlyRevenue: 0
   });
   const [loading, setLoading] = useState(true);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [selectedBusiness, setSelectedBusiness] = useState(null);
+  const [trialDays, setTrialDays] = useState(30);
 
   useEffect(() => {
     loadData();
@@ -37,102 +40,120 @@ export default function AdminDashboard() {
     }
   }
 
-  async function approveBusiness(businessId) {
-  if (!confirm('Approve this business?')) return;
-
-  try {
-    const response = await fetch('/api/admin/approve-business', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ businessId })
-    });
-
-    const data = await response.json();
-
-    if (data.success) {
-      showToast(`Business approved! Email: ${data.email}`, 'success');
-      loadData();
-    } else {
-      showToast(data.message, 'error');
-    }
-  } catch (error) {
-    showToast('Failed to approve business', 'error');
+  function openApprovalModal(business) {
+    setSelectedBusiness(business);
+    setTrialDays(30); // Default 30 days
+    setShowApprovalModal(true);
   }
-}
+
+  async function approveBusiness() {
+    if (!selectedBusiness) return;
+
+    try {
+      const response = await fetch('/api/admin/approve-business', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          businessId: selectedBusiness.id,
+          trialDays: trialDays
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        showToast(`✅ Business approved with ${trialDays} days trial!`, 'success');
+        setShowApprovalModal(false);
+        setSelectedBusiness(null);
+        loadData();
+      } else {
+        showToast(data.message, 'error');
+      }
+    } catch (error) {
+      showToast('Failed to approve business', 'error');
+    }
+  }
 
   async function extendTrial(businessId, days) {
-  if (!confirm(`Extend trial by ${days} days?`)) return;
+    if (!confirm(`Extend trial by ${days} days?`)) return;
 
-  try {
-    const response = await fetch('/api/admin/extend-trial', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ businessId, days })
-    });
+    try {
+      const response = await fetch('/api/admin/extend-trial', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessId, days })
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (data.success) {
-      showToast(`Trial extended by ${days} days!`, 'success');
-      loadData();
-    } else {
-      showToast(data.message, 'error');
+      if (data.success) {
+        showToast(`Trial extended by ${days} days!`, 'success');
+        loadData();
+      } else {
+        showToast(data.message, 'error');
+      }
+    } catch (error) {
+      showToast('Failed to extend trial', 'error');
     }
-  } catch (error) {
-    showToast('Failed to extend trial', 'error');
   }
-}
 
   async function suspendBusiness(businessId) {
-  if (!confirm('Suspend this business? They will lose access immediately.')) return;
+    if (!confirm('Suspend this business? They will lose access immediately.')) return;
 
-  try {
-    const response = await fetch('/api/admin/suspend-business', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ businessId })
-    });
+    try {
+      const response = await fetch('/api/admin/suspend-business', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessId })
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (data.success) {
-      showToast('Business suspended!', 'success');
-      loadData();
-    } else {
-      showToast(data.message, 'error');
+      if (data.success) {
+        showToast('Business suspended!', 'success');
+        loadData();
+      } else {
+        showToast(data.message, 'error');
+      }
+    } catch (error) {
+      showToast('Failed to suspend business', 'error');
     }
-  } catch (error) {
-    showToast('Failed to suspend business', 'error');
   }
-}
 
   async function reactivateBusiness(businessId) {
-  if (!confirm('Reactivate this business?')) return;
+    if (!confirm('Reactivate this business?')) return;
 
-  try {
-    const response = await fetch('/api/admin/reactivate-business', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ businessId })
-    });
+    try {
+      const response = await fetch('/api/admin/reactivate-business', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessId })
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (data.success) {
-      showToast('Business reactivated!', 'success');
-      loadData();
-    } else {
-      showToast(data.message, 'error');
+      if (data.success) {
+        showToast('Business reactivated!', 'success');
+        loadData();
+      } else {
+        showToast(data.message, 'error');
+      }
+    } catch (error) {
+      showToast('Failed to reactivate business', 'error');
     }
-  } catch (error) {
-    showToast('Failed to reactivate business', 'error');
   }
-}
+
+  const planColors = {
+    basic: '#0066cc',
+    silver: '#ff9900',
+    gold: '#006633'
+  };
 
   if (loading) {
     return (
       <>
-        <Head><title>Super Admin Dashboard - CarWash Pro Kenya</title></Head><ToastContainer />
+        <Head><title>Super Admin Dashboard - CarWash Pro Kenya</title></Head>
+        <ToastContainer />
         
         <div style={{ fontFamily: 'system-ui', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #006633 0%, #004d26 100%)' }}>
           <div style={{ textAlign: 'center', color: 'white' }}>
@@ -154,6 +175,7 @@ export default function AdminDashboard() {
   return (
     <>
       <Head><title>Super Admin Dashboard - CarWash Pro Kenya</title></Head>
+      <ToastContainer />
 
       <div style={{ fontFamily: 'system-ui', minHeight: '100vh', background: '#f5f5f5' }}>
         <div style={{ background: 'linear-gradient(135deg, #006633 0%, #004d26 100%)', color: 'white', padding: '1.5rem 2rem', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
@@ -196,6 +218,7 @@ export default function AdminDashboard() {
                   <tr style={{ background: '#f9f9f9' }}>
                     <th style={{ padding: '1rem', textAlign: 'left' }}>Business</th>
                     <th style={{ padding: '1rem', textAlign: 'left' }}>Owner</th>
+                    <th style={{ padding: '1rem', textAlign: 'center' }}>Plan</th>
                     <th style={{ padding: '1rem', textAlign: 'left' }}>Location</th>
                     <th style={{ padding: '1rem', textAlign: 'center' }}>Status</th>
                     <th style={{ padding: '1rem', textAlign: 'center' }}>Trial Ends</th>
@@ -206,6 +229,7 @@ export default function AdminDashboard() {
                   {businesses.map((business) => {
                     const trialDaysLeft = business.trial_ends_at ? Math.ceil((new Date(business.trial_ends_at) - new Date()) / (1000 * 60 * 60 * 24)) : 0;
                     const isTrialExpired = trialDaysLeft <= 0 && business.subscription_status === 'trial';
+                    const plan = business.subscription_plan || 'basic';
 
                     return (
                       <tr key={business.id} style={{ borderBottom: '1px solid #e0e0e0' }}>
@@ -214,6 +238,19 @@ export default function AdminDashboard() {
                           <div style={{ fontSize: '0.9rem', color: '#666' }}>{business.email}</div>
                         </td>
                         <td style={{ padding: '1rem' }}>{business.owner_name}</td>
+                        <td style={{ padding: '1rem', textAlign: 'center' }}>
+                          <span style={{ 
+                            padding: '0.35rem 0.85rem', 
+                            borderRadius: '12px', 
+                            fontSize: '0.85rem', 
+                            fontWeight: 'bold',
+                            background: `${planColors[plan]}20`,
+                            color: planColors[plan],
+                            textTransform: 'uppercase'
+                          }}>
+                            {plan}
+                          </span>
+                        </td>
                         <td style={{ padding: '1rem' }}>{business.location}</td>
                         <td style={{ padding: '1rem', textAlign: 'center' }}>
                           <span style={{ padding: '0.25rem 0.75rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold', background: business.subscription_status === 'active' ? '#e8f5e9' : business.subscription_status === 'trial' ? '#fff3e0' : business.subscription_status === 'suspended' ? '#ffebee' : '#f5f5f5', color: business.subscription_status === 'active' ? '#2e7d32' : business.subscription_status === 'trial' ? '#f57c00' : business.subscription_status === 'suspended' ? '#c62828' : '#666' }}>
@@ -236,13 +273,14 @@ export default function AdminDashboard() {
                         <td style={{ padding: '1rem', textAlign: 'center' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                             {!business.approved_at && (
-                              <button onClick={() => approveBusiness(business.id)} style={{ background: '#006633', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>✓ Approve</button>
+                              <button onClick={() => openApprovalModal(business)} style={{ background: '#006633', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>✓ Approve</button>
                             )}
 
                             {business.approved_at && business.email !== 'info@natsautomations.co.ke' && (
                               <>
-                                <button onClick={() => extendTrial(business.id, 60)} style={{ background: '#0066cc', color: 'white', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>+60 Days</button>
-                                <button onClick={() => extendTrial(business.id, 90)} style={{ background: '#9c27b0', color: 'white', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>+90 Days</button>
+                                <button onClick={() => extendTrial(business.id, 30)} style={{ background: '#0066cc', color: 'white', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>+30 Days</button>
+                                <button onClick={() => extendTrial(business.id, 60)} style={{ background: '#9c27b0', color: 'white', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>+60 Days</button>
+                                <button onClick={() => extendTrial(business.id, 90)} style={{ background: '#ff9900', color: 'white', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>+90 Days</button>
 
                                 {business.subscription_status !== 'suspended' ? (
                                   <button onClick={() => suspendBusiness(business.id)} style={{ background: '#f44336', color: 'white', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>⛔ Suspend</button>
@@ -266,6 +304,90 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
+
+      {/* APPROVAL MODAL */}
+      {showApprovalModal && selectedBusiness && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }} onClick={() => setShowApprovalModal(false)}>
+          <div style={{ background: 'white', padding: '2rem', borderRadius: '20px', maxWidth: '500px', width: '100%' }} onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ color: '#006633', marginBottom: '1rem' }}>✅ Approve Business</h2>
+            
+            <div style={{ marginBottom: '1.5rem', padding: '1rem', background: '#f9f9f9', borderRadius: '8px' }}>
+              <div style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>{selectedBusiness.business_name}</div>
+              <div style={{ fontSize: '0.9rem', color: '#666' }}>Owner: {selectedBusiness.owner_name}</div>
+              <div style={{ fontSize: '0.9rem', color: '#666' }}>Email: {selectedBusiness.email}</div>
+              <div style={{ fontSize: '0.9rem', color: '#666', marginTop: '0.5rem' }}>
+                Selected Plan: <span style={{ fontWeight: 'bold', color: planColors[selectedBusiness.subscription_plan || 'basic'], textTransform: 'uppercase' }}>{selectedBusiness.subscription_plan || 'basic'}</span>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                Set Trial Period (Days) *
+              </label>
+              <input
+                type="number"
+                value={trialDays}
+                onChange={(e) => setTrialDays(parseInt(e.target.value))}
+                min="1"
+                max="365"
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  border: '2px solid #e0e0e0',
+                  borderRadius: '8px',
+                  fontSize: '1rem',
+                  boxSizing: 'border-box'
+                }}
+              />
+              <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.5rem' }}>
+                💡 Common: 30 days (1 month), 60 days (2 months), 90 days (3 months)
+              </div>
+            </div>
+
+            <div style={{ background: '#e8f5e9', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
+              <div style={{ fontWeight: 'bold', color: '#2e7d32', marginBottom: '0.5rem' }}>What happens next:</div>
+              <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                ✅ Account activated immediately<br/>
+                📧 Welcome email sent with login details<br/>
+                ⏰ Trial expires in {trialDays} days
+              </div>
+            </div>
+
+            <button
+              onClick={approveBusiness}
+              style={{
+                width: '100%',
+                background: '#006633',
+                color: 'white',
+                border: 'none',
+                padding: '1rem',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: '1rem',
+                marginBottom: '0.5rem'
+              }}
+            >
+              ✓ Approve with {trialDays} Days Trial
+            </button>
+
+            <button
+              onClick={() => setShowApprovalModal(false)}
+              style={{
+                width: '100%',
+                background: '#f0f0f0',
+                color: '#666',
+                border: 'none',
+                padding: '0.75rem',
+                borderRadius: '8px',
+                cursor: 'pointer'
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

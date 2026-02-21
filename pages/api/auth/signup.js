@@ -7,14 +7,17 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { businessName, ownerName, email, phone, password, location, numberOfBays } = req.body;
+    const { businessName, ownerName, email, phone, password, location, selectedPlan } = req.body;
+
+    // Validate plan
+    const validPlans = ['basic', 'silver', 'gold'];
+    const plan = validPlans.includes(selectedPlan) ? selectedPlan : 'silver'; // Default to silver
 
     // Check if email already exists
     const existingUser = await query(
       'SELECT id FROM users WHERE email = $1',
       [email]
     );
-
     if (existingUser && existingUser.length > 0) {
       return res.status(400).json({
         success: false,
@@ -26,7 +29,6 @@ export default async function handler(req, res) {
       'SELECT id FROM businesses WHERE email = $1',
       [email]
     );
-
     if (existingBusiness && existingBusiness.length > 0) {
       return res.status(400).json({
         success: false,
@@ -34,13 +36,27 @@ export default async function handler(req, res) {
       });
     }
 
-    // Create business
+    // Calculate trial end date (7 days from now)
+    const trialEndDate = new Date();
+    trialEndDate.setDate(trialEndDate.getDate() + 7);
+
+    // Create business with selected plan
     const business = await querySingle(
-  `INSERT INTO businesses (business_name, owner_name, email, phone, location, subscription_status, is_active)
-   VALUES ($1, $2, $3, $4, $5, 'trial', false)
-   RETURNING id`,
-  [businessName, ownerName, email, phone, location]
-);
+      `INSERT INTO businesses (
+        business_name, 
+        owner_name, 
+        email, 
+        phone, 
+        location, 
+        subscription_plan,
+        subscription_status, 
+        trial_ends_at,
+        is_active
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, 'trial', $7, false)
+      RETURNING id`,
+      [businessName, ownerName, email, phone, location, plan, trialEndDate]
+    );
 
     const businessId = business.id;
 
@@ -54,17 +70,24 @@ export default async function handler(req, res) {
        RETURNING id`,
       [businessId, ownerName, email, phone, hashedPassword]
     );
-console.log('=== NEW BUSINESS SIGNUP ===');
+
+    // Create default branch
+    const branch = await querySingle(
+      `INSERT INTO branches (business_id, branch_name, location, is_active)
+       VALUES ($1, $2, $3, true)
+       RETURNING id`,
+      [businessId, businessName + ' - Main Branch', location]
+    );
+
+    console.log('=== NEW BUSINESS SIGNUP ===');
     console.log('Business:', businessName);
     console.log('Owner:', ownerName);
     console.log('Email:', email);
-    console.log('Bays:', numberOfBays);
+    console.log('Plan:', plan.toUpperCase());
+    console.log('Trial ends:', trialEndDate.toLocaleDateString());
     console.log('==========================');
 
     // Send verification email
-    console.log('📧 About to send verification email...');
-    console.log('URL:', `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/send-verification-email`);
-    
     try {
       const emailResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/send-verification-email`, {
         method: 'POST',
@@ -73,7 +96,9 @@ console.log('=== NEW BUSINESS SIGNUP ===');
           businessId: businessId,
           ownerName: ownerName,
           businessName: businessName,
-          email: email
+          email: email,
+          plan: plan,
+          trialEndDate: trialEndDate.toISOString()
         })
       });
       
@@ -87,13 +112,13 @@ console.log('=== NEW BUSINESS SIGNUP ===');
       }
     } catch (emailError) {
       console.error('📧 Failed to send verification email:', emailError);
-      // Don't fail signup if email fails - admin can resend later
     }
 
     return res.status(201).json({
       success: true,
-      message: 'Business registered successfully! Please check your email to verify your account.',
-      businessId: businessId
+      message: `${plan.charAt(0).toUpperCase() + plan.slice(1)} plan activated! Check your email to get started.`,
+      businessId: businessId,
+      plan: plan
     });
    
   } catch (error) {

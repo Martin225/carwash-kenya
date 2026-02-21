@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../lib/auth-context';
-import PasswordInput from '../../components/PasswordInput';
 import { useToast } from '../../components/Toast';
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export default function OwnerDashboard() {
   const router = useRouter();
@@ -23,6 +23,7 @@ export default function OwnerDashboard() {
   const [inventory, setInventory] = useState([]);
   const [supervisors, setSupervisors] = useState([]);
   const [branches, setBranches] = useState([]);
+  const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAddSupervisor, setShowAddSupervisor] = useState(false);
   const [supervisorForm, setSupervisorForm] = useState({
@@ -41,6 +42,9 @@ export default function OwnerDashboard() {
       if (activeTab === 'supervisors') {
         loadSupervisors();
         loadBranches();
+      }
+      if (activeTab === 'analytics') {
+        loadAnalytics();
       }
     } else {
       router.push('/login');
@@ -98,6 +102,19 @@ export default function OwnerDashboard() {
     }
   }
 
+  async function loadAnalytics() {
+    try {
+      const response = await fetch(`/api/owner/analytics?businessId=${user.business_id}&period=30`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setAnalytics(data.data);
+      }
+    } catch (error) {
+      console.error('Analytics error:', error);
+    }
+  }
+
   async function loadSupervisors() {
     try {
       const response = await fetch(`/api/owner/supervisors?businessId=${user.business_id}`);
@@ -146,50 +163,50 @@ export default function OwnerDashboard() {
   }
 
   async function toggleSupervisor(supervisorId, currentStatus) {
-  const action = currentStatus ? 'deactivate' : 'activate';
-  
-  try {
-    const response = await fetch('/api/owner/supervisors', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ supervisorId, isActive: !currentStatus })
-    });
+    const action = currentStatus ? 'deactivate' : 'activate';
+    
+    try {
+      const response = await fetch('/api/owner/supervisors', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ supervisorId, isActive: !currentStatus })
+      });
 
-    const data = await response.json();
-    if (data.success) {
-      showToast(`Supervisor ${action}d successfully!`, 'success');
-      loadSupervisors();
-    } else {
-      showToast(data.message, 'error');
+      const data = await response.json();
+      if (data.success) {
+        showToast(`Supervisor ${action}d successfully!`, 'success');
+        loadSupervisors();
+      } else {
+        showToast(data.message, 'error');
+      }
+    } catch (error) {
+      showToast('Failed to update supervisor', 'error');
     }
-  } catch (error) {
-    showToast('Failed to update supervisor', 'error');
-  }
-}
-
-async function deleteSupervisor(supervisorId, supervisorName) {
-  if (!confirm(`⚠️ DELETE ${supervisorName}?\n\nThis will permanently remove them from the system. They will NOT be able to login again.\n\nAre you absolutely sure?`)) {
-    return;
   }
 
-  try {
-    const response = await fetch('/api/owner/supervisors', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ supervisorId })
-    });
-
-    const data = await response.json();
-    if (data.success) {
-      showToast('✅ Supervisor deleted permanently', 'success');
-      loadSupervisors();
-    } else {
-      showToast(data.message, 'error');
+  async function deleteSupervisor(supervisorId, supervisorName) {
+    if (!confirm(`⚠️ DELETE ${supervisorName}?\n\nThis will permanently remove them from the system. They will NOT be able to login again.\n\nAre you absolutely sure?`)) {
+      return;
     }
-  } catch (error) {
-    showToast('Failed to delete supervisor', 'error');
+
+    try {
+      const response = await fetch('/api/owner/supervisors', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ supervisorId })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        showToast('✅ Supervisor deleted permanently', 'success');
+        loadSupervisors();
+      } else {
+        showToast(data.message, 'error');
+      }
+    } catch (error) {
+      showToast('Failed to delete supervisor', 'error');
+    }
   }
-}
 
   async function handlePayment(e) {
     e.preventDefault();
@@ -254,6 +271,13 @@ async function deleteSupervisor(supervisorId, supervisorName) {
     }, 1000);
   }
 
+  function downloadExcelReport(period) {
+    window.open(`/api/owner/export-report?businessId=${user.business_id}&period=${period}`, '_blank');
+    showToast(`📊 Generating ${period} report...`, 'success');
+  }
+
+  const COLORS = ['#006633', '#0066cc', '#ff9900', '#9c27b0', '#f44336', '#4caf50'];
+
   return (
     <>
       <Head>
@@ -282,7 +306,6 @@ async function deleteSupervisor(supervisorId, supervisorName) {
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               <button onClick={() => setActiveTab('overview')} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Dashboard</button>
               <button onClick={() => router.push('/owner/payment-settings')} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>💳 Payments</button>
-              {/* ✅ REPORTS BUTTON ADDED HERE */}
               <button onClick={() => router.push('/owner/reports')} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>📊 Reports</button>
               <button onClick={() => logout()} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Logout</button>
             </div>
@@ -338,9 +361,9 @@ async function deleteSupervisor(supervisorId, supervisorName) {
 
           <div style={{ marginBottom: '2rem', borderBottom: '2px solid #e0e0e0' }}>
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-              {['overview', 'transactions', 'inventory', 'supervisors', 'branches'].map(tab => (
+              {['overview', 'analytics', 'transactions', 'inventory', 'supervisors', 'branches'].map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)} style={{ background: activeTab === tab ? '#006633' : 'transparent', color: activeTab === tab ? 'white' : '#666', border: 'none', padding: '1rem 1.5rem', cursor: 'pointer', fontWeight: 'bold', borderBottom: activeTab === tab ? '3px solid #006633' : '3px solid transparent', fontSize: '1rem' }}>
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  {tab === 'analytics' ? '📊 Analytics' : tab.charAt(0).toUpperCase() + tab.slice(1)}
                 </button>
               ))}
             </div>
@@ -360,6 +383,164 @@ async function deleteSupervisor(supervisorId, supervisorName) {
                   <div style={{ color: '#666', marginTop: '0.5rem' }}>{stat.label}</div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {activeTab === 'analytics' && (
+            <div>
+              {/* EXCEL DOWNLOAD BUTTONS */}
+              <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+                <h2 style={{ margin: '0 0 1rem 0', color: '#006633' }}>📥 Download Excel Reports</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                  <button onClick={() => downloadExcelReport('daily')} style={{ background: '#006633', color: 'white', border: 'none', padding: '1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>
+                    📄 Daily Report
+                  </button>
+                  <button onClick={() => downloadExcelReport('weekly')} style={{ background: '#0066cc', color: 'white', border: 'none', padding: '1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>
+                    📊 Weekly Report
+                  </button>
+                  <button onClick={() => downloadExcelReport('monthly')} style={{ background: '#ff9900', color: 'white', border: 'none', padding: '1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>
+                    📈 Monthly Report
+                  </button>
+                </div>
+              </div>
+
+              {analytics ? (
+                <>
+                  {/* ROI METRICS */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+                    {[
+                      { label: 'Net Profit', value: `Kshs ${analytics.summary.netProfit.toLocaleString()}`, icon: '💰', color: analytics.summary.netProfit >= 0 ? '#4caf50' : '#f44336' },
+                      { label: 'Profit Margin', value: `${analytics.summary.profitMargin}%`, icon: '📊', color: '#0066cc' },
+                      { label: 'ROI', value: `${analytics.summary.roi}%`, icon: '📈', color: '#ff9900' },
+                      { label: 'Growth Rate', value: `${analytics.summary.growthRate}%`, icon: '🚀', color: analytics.summary.growthRate >= 0 ? '#4caf50' : '#f44336' }
+                    ].map((metric, i) => (
+                      <div key={i} style={{ background: 'white', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', borderLeft: `4px solid ${metric.color}` }}>
+                        <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>{metric.icon}</div>
+                        <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: metric.color }}>{metric.value}</div>
+                        <div style={{ color: '#666', marginTop: '0.5rem' }}>{metric.label}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* REVENUE TREND CHART */}
+                  <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+                    <h2 style={{ margin: '0 0 1.5rem 0', color: '#006633' }}>📈 Revenue Trend (Last 30 Days)</h2>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <LineChart data={analytics.revenueTrend}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="date" tickFormatter={(date) => new Date(date).toLocaleDateString('en-KE', { month: 'short', day: 'numeric' })} />
+                        <YAxis />
+                        <Tooltip formatter={(value) => `Kshs ${value.toLocaleString()}`} />
+                        <Legend />
+                        <Line type="monotone" dataKey="revenue" stroke="#006633" strokeWidth={2} name="Revenue" />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* EXPENSES VS REVENUE */}
+                  <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+                    <h2 style={{ margin: '0 0 1.5rem 0', color: '#006633' }}>💰 Revenue vs Expenses (This Month)</h2>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                      <div style={{ background: '#e8f5e9', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.5rem' }}>Revenue</div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#4caf50' }}>
+                          Kshs {analytics.summary.totalRevenue.toLocaleString()}
+                        </div>
+                      </div>
+                      <div style={{ background: '#fff3e0', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.5rem' }}>Total Costs</div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ff9800' }}>
+                          Kshs {analytics.summary.totalCosts.toLocaleString()}
+                        </div>
+                      </div>
+                      <div style={{ background: analytics.summary.netProfit >= 0 ? '#e8f5e9' : '#ffebee', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.5rem' }}>Net Profit</div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: analytics.summary.netProfit >= 0 ? '#4caf50' : '#f44336' }}>
+                          Kshs {analytics.summary.netProfit.toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={[
+                        { category: 'Revenue', amount: analytics.summary.totalRevenue },
+                        { category: 'Staff Commission', amount: analytics.summary.staffCommissions },
+                        { category: 'Operating Expenses', amount: analytics.summary.totalExpenses },
+                        { category: 'Net Profit', amount: analytics.summary.netProfit }
+                      ]}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="category" />
+                        <YAxis />
+                        <Tooltip formatter={(value) => `Kshs ${value.toLocaleString()}`} />
+                        <Bar dataKey="amount" fill="#006633" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* SERVICE BREAKDOWN PIE CHART */}
+                  {analytics.serviceBreakdown.length > 0 && (
+                    <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+                      <h2 style={{ margin: '0 0 1.5rem 0', color: '#006633' }}>🥧 Revenue by Service</h2>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                          <Pie
+                            data={analytics.serviceBreakdown}
+                            dataKey="revenue"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={100}
+                            label={(entry) => `${entry.name}: Kshs ${entry.revenue.toLocaleString()}`}
+                          >
+                            {analytics.serviceBreakdown.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value) => `Kshs ${value.toLocaleString()}`} />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
+                  {/* STAFF PERFORMANCE TABLE */}
+                  {analytics.staffPerformance.length > 0 && (
+                    <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+                      <h2 style={{ margin: '0 0 1.5rem 0', color: '#006633' }}>👥 Staff Performance (This Month)</h2>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                          <thead>
+                            <tr style={{ background: '#f9f9f9', borderBottom: '2px solid #e0e0e0' }}>
+                              <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>Staff Name</th>
+                              <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '600' }}>Cars Washed</th>
+                              <th style={{ padding: '1rem', textAlign: 'right', fontWeight: '600' }}>Revenue Generated</th>
+                              <th style={{ padding: '1rem', textAlign: 'right', fontWeight: '600' }}>Commission Earned</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {analytics.staffPerformance.map((staff, i) => (
+                              <tr key={i} style={{ borderBottom: '1px solid #e0e0e0' }}>
+                                <td style={{ padding: '1rem', fontWeight: '500' }}>{staff.name}</td>
+                                <td style={{ padding: '1rem', textAlign: 'center' }}>{staff.carsWashed}</td>
+                                <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 'bold', color: '#006633' }}>
+                                  Kshs {staff.revenue.toLocaleString()}
+                                </td>
+                                <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 'bold', color: '#0066cc' }}>
+                                  Kshs {staff.commission.toLocaleString()}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '4rem' }}>
+                  <div style={{ fontSize: '4rem', marginBottom: '1rem', animation: 'spin 1s linear infinite' }}>⏳</div>
+                  <p style={{ fontSize: '1.1rem', fontWeight: '500', color: '#999' }}>Loading analytics...</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -488,23 +669,23 @@ async function deleteSupervisor(supervisorId, supervisorName) {
                         </span>
                       </div>
                       <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '1rem' }}>
-  <p style={{ margin: '0.5rem 0' }}>📧 {sup.email}</p>
-  <p style={{ margin: '0.5rem 0' }}>📞 {sup.phone}</p>
-</div>
-<div style={{ display: 'flex', gap: '0.5rem' }}>
-  <button
-    onClick={() => toggleSupervisor(sup.id, sup.is_active)} 
-    style={{ flex: 1, padding: '0.75rem', background: sup.is_active ? '#ff9800' : '#4caf50', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}
-  >
-    {sup.is_active ? '⏸️ Deactivate' : '✓ Activate'}
-  </button>
-  <button 
-    onClick={() => deleteSupervisor(sup.id, sup.full_name)} 
-    style={{ flex: 1, padding: '0.75rem', background: '#f44336', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}
-  >
-    🗑️ Delete
-  </button>
-</div>
+                        <p style={{ margin: '0.5rem 0' }}>📧 {sup.email}</p>
+                        <p style={{ margin: '0.5rem 0' }}>📞 {sup.phone}</p>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button
+                          onClick={() => toggleSupervisor(sup.id, sup.is_active)} 
+                          style={{ flex: 1, padding: '0.75rem', background: sup.is_active ? '#ff9800' : '#4caf50', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}
+                        >
+                          {sup.is_active ? '⏸️ Deactivate' : '✓ Activate'}
+                        </button>
+                        <button 
+                          onClick={() => deleteSupervisor(sup.id, sup.full_name)} 
+                          style={{ flex: 1, padding: '0.75rem', background: '#f44336', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}
+                        >
+                          🗑️ Delete
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -524,6 +705,7 @@ async function deleteSupervisor(supervisorId, supervisorName) {
         </div>
       </div>
 
+      {/* MODALS */}
       {showAddSupervisor && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }} onClick={() => setShowAddSupervisor(false)}>
           <div style={{ background: 'white', padding: '2rem', borderRadius: '20px', maxWidth: '500px', width: '100%' }} onClick={(e) => e.stopPropagation()}>

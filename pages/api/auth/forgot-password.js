@@ -118,8 +118,7 @@ export default async function handler(req, res) {
                         
                         <div style="background: #fff3e0; border-left: 4px solid #ff9800; padding: 15px; border-radius: 4px; margin: 0 0 30px 0;">
                           <p style="margin: 0; font-size: 14px; color: #666;">
-                            ⏰ <strong>This code expires in 1 hour</strong><br>
-                            📅 Expires at: ${expiresAt.toLocaleString('en-KE', { dateStyle: 'medium', timeStyle: 'short' })}
+                               ⏰ This code expires in 1 hour
                           </p>
                         </div>
                         

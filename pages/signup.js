@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import PasswordInput from '../components/PasswordInput';
 
 export default function SignupPage() {
   const router = useRouter();
+  const [selectedPlan, setSelectedPlan] = useState('silver'); // Default to Silver
   const [formData, setFormData] = useState({
     businessName: '',
     ownerName: '',
@@ -17,6 +18,21 @@ export default function SignupPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
+  // Get plan from URL if provided
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const planFromUrl = urlParams.get('plan');
+    if (planFromUrl && ['basic', 'silver', 'gold'].includes(planFromUrl)) {
+      setSelectedPlan(planFromUrl);
+    }
+  }, []);
+
+  const plans = {
+    basic: { name: 'Basic', price: '2,000', color: '#0066cc' },
+    silver: { name: 'Silver', price: '3,000', color: '#ff9900', popular: true },
+    gold: { name: 'Gold', price: '6,000', color: '#006633' }
+  };
+
   async function handleSignup(e) {
     e.preventDefault();
     setLoading(true);
@@ -26,7 +42,10 @@ export default function SignupPage() {
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          selectedPlan // Include selected plan
+        })
       });
 
       const data = await response.json();
@@ -64,10 +83,12 @@ export default function SignupPage() {
             boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
           }}>
             <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🎉</div>
-            <h1 style={{ color: '#006633', marginBottom: '1rem' }}>Application Submitted!</h1>
-            <p style={{ fontSize: '1.1rem', color: '#666', marginBottom: '2rem', lineHeight: '1.6' }}>
-              Thank you for registering! Your application has been submitted for approval.
-              We'll review it within 24 hours and send you a confirmation email with your login credentials.
+            <h1 style={{ color: '#006633', marginBottom: '1rem' }}>Welcome to CarWash Pro!</h1>
+            <p style={{ fontSize: '1.1rem', color: '#666', marginBottom: '1rem', lineHeight: '1.6' }}>
+              Your <strong style={{ color: plans[selectedPlan].color }}>{plans[selectedPlan].name}</strong> plan account has been created!
+            </p>
+            <p style={{ fontSize: '1rem', color: '#666', marginBottom: '2rem', lineHeight: '1.6' }}>
+              You have <strong>7 days free trial</strong>. Check your email for verification and login details.
             </p>
             <div style={{ 
               background: '#f0f7ff', 
@@ -76,10 +97,10 @@ export default function SignupPage() {
               marginBottom: '2rem',
               color: '#0066cc'
             }}>
-              📧 Check your email: <strong>{formData.email}</strong>
+              📧 Email sent to: <strong>{formData.email}</strong>
             </div>
             <button
-              onClick={() => router.push('/')}
+              onClick={() => router.push('/login')}
               style={{
                 width: '100%',
                 background: '#006633',
@@ -89,6 +110,21 @@ export default function SignupPage() {
                 borderRadius: '8px',
                 fontSize: '1rem',
                 fontWeight: 'bold',
+                cursor: 'pointer',
+                marginBottom: '0.5rem'
+              }}
+            >
+              Login Now →
+            </button>
+            <button
+              onClick={() => router.push('/')}
+              style={{
+                width: '100%',
+                background: 'transparent',
+                color: '#666',
+                border: 'none',
+                padding: '0.75rem',
+                fontSize: '0.9rem',
                 cursor: 'pointer'
               }}
             >
@@ -147,14 +183,65 @@ export default function SignupPage() {
             background: 'white',
             padding: '3rem',
             borderRadius: '20px',
-            maxWidth: '550px',
+            maxWidth: '650px',
             width: '100%',
             boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
           }}>
             <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
               <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🚗</div>
               <h1 style={{ color: '#006633', marginBottom: '0.5rem' }}>Start Your Free Trial</h1>
-              <p style={{ color: '#666' }}>30 days free • No credit card required</p>
+              <p style={{ color: '#666' }}>7 days free • No credit card required</p>
+            </div>
+
+            {/* PLAN SELECTOR */}
+            <div style={{ marginBottom: '2rem' }}>
+              <h3 style={{ marginBottom: '1rem', color: '#333', fontSize: '1.1rem' }}>Choose Your Plan:</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+                {Object.entries(plans).map(([key, plan]) => (
+                  <div
+                    key={key}
+                    onClick={() => setSelectedPlan(key)}
+                    style={{
+                      padding: '1rem',
+                      border: selectedPlan === key ? `3px solid ${plan.color}` : '2px solid #e0e0e0',
+                      borderRadius: '12px',
+                      cursor: 'pointer',
+                      textAlign: 'center',
+                      position: 'relative',
+                      background: selectedPlan === key ? `${plan.color}15` : 'white',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {plan.popular && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '-10px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        background: '#FCD116',
+                        color: '#006633',
+                        padding: '0.25rem 0.75rem',
+                        borderRadius: '12px',
+                        fontSize: '0.7rem',
+                        fontWeight: 'bold'
+                      }}>
+                        POPULAR
+                      </div>
+                    )}
+                    <div style={{ fontWeight: 'bold', color: plan.color, marginBottom: '0.25rem' }}>
+                      {plan.name}
+                    </div>
+                    <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                      Kshs {plan.price}/mo
+                    </div>
+                    {selectedPlan === key && (
+                      <div style={{ marginTop: '0.5rem', color: plan.color, fontWeight: 'bold' }}>
+                        ✓ Selected
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
 
             {error && (
@@ -295,7 +382,7 @@ export default function SignupPage() {
                 style={{
                   width: '100%',
                   padding: '1rem',
-                  background: loading ? '#ccc' : '#006633',
+                  background: loading ? '#ccc' : plans[selectedPlan].color,
                   color: 'white',
                   border: 'none',
                   borderRadius: '8px',
@@ -305,7 +392,7 @@ export default function SignupPage() {
                   marginBottom: '1rem'
                 }}
               >
-                {loading ? 'Submitting...' : 'Start Free Trial →'}
+                {loading ? 'Creating Account...' : `Start ${plans[selectedPlan].name} Trial (7 Days Free) →`}
               </button>
             </form>
 

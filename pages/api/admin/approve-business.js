@@ -6,7 +6,10 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { businessId } = req.body;
+    const { businessId, trialDays } = req.body;
+
+    // Validate trial days (default to 30 if not provided)
+    const days = trialDays && trialDays > 0 ? trialDays : 30;
 
     const business = await querySingle(
       'SELECT * FROM businesses WHERE id = $1',
@@ -20,16 +23,22 @@ export default async function handler(req, res) {
       });
     }
 
+    // Calculate trial end date
+    const trialEndDate = new Date();
+    trialEndDate.setDate(trialEndDate.getDate() + days);
+
+    // Approve business with custom trial period
     await query(
       `UPDATE businesses 
        SET approved_at = NOW(), 
            is_active = true,
            subscription_status = 'trial',
-           trial_ends_at = NOW() + INTERVAL '30 days'
+           trial_ends_at = $2
        WHERE id = $1`,
-      [businessId]
+      [businessId, trialEndDate]
     );
 
+    // Activate owner account
     await query(
       `UPDATE users 
        SET is_active = true
@@ -37,11 +46,13 @@ export default async function handler(req, res) {
       [businessId]
     );
 
+    // Check if branch exists
     const existingBranch = await query(
       'SELECT id FROM branches WHERE business_id = $1',
       [businessId]
     );
 
+    // Create default branch and bays if doesn't exist
     if (existingBranch.length === 0) {
       const branch = await querySingle(
         `INSERT INTO branches (business_id, branch_name, branch_code, address, is_active)
@@ -50,6 +61,7 @@ export default async function handler(req, res) {
         [businessId, business.business_name + ' - Main Branch', 'MAIN-' + businessId, business.location || 'Nairobi']
       );
 
+      // Create 4 default bays
       for (let i = 1; i <= 4; i++) {
         await query(
           `INSERT INTO bays (branch_id, bay_number, bay_name, status, is_active)
@@ -57,25 +69,30 @@ export default async function handler(req, res) {
           [branch.id, i, `Bay ${i}`]
         );
       }
-
-      console.log('Branch and 4 bays created for:', business.business_name);
+      console.log('✅ Branch and 4 bays created for:', business.business_name);
     }
 
-    const trialEndDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString();
-    
     console.log('=== BUSINESS APPROVED ===');
     console.log('Business:', business.business_name);
+    console.log('Plan:', (business.subscription_plan || 'basic').toUpperCase());
     console.log('Owner Email:', business.email);
-    console.log('Trial Ends:', trialEndDate);
+    console.log('Trial Days:', days);
+    console.log('Trial Ends:', trialEndDate.toLocaleDateString());
     console.log('========================');
+
+    // TODO: Send welcome email here
+    // await sendWelcomeEmail(business.email, business.owner_name, business.business_name, trialEndDate);
 
     return res.status(200).json({
       success: true,
-      message: 'Business approved successfully',
+      message: `Business approved with ${days} days trial!`,
       business: business.business_name,
       email: business.email,
-      trialEnds: trialEndDate
+      plan: business.subscription_plan || 'basic',
+      trialDays: days,
+      trialEnds: trialEndDate.toLocaleDateString()
     });
+
   } catch (error) {
     console.error('Error approving business:', error);
     return res.status(500).json({ 
