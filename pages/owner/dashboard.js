@@ -20,7 +20,6 @@ export default function OwnerDashboard() {
     activeCustomers: 0
   });
   const [transactions, setTransactions] = useState([]);
-  const [inventory, setInventory] = useState([]);
   const [supervisors, setSupervisors] = useState([]);
   const [branches, setBranches] = useState([]);
   const [analytics, setAnalytics] = useState(null);
@@ -93,7 +92,6 @@ export default function OwnerDashboard() {
       if (data.success) {
         setStats(data.stats || stats);
         setTransactions(data.transactions || []);
-        setInventory(data.inventory || []);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -305,6 +303,7 @@ export default function OwnerDashboard() {
             </div>
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               <button onClick={() => setActiveTab('overview')} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Dashboard</button>
+              <button onClick={() => router.push('/owner/inventory')} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>📦 Inventory</button>
               <button onClick={() => router.push('/owner/payment-settings')} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>💳 Payments</button>
               <button onClick={() => router.push('/owner/reports')} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>📊 Reports</button>
               <button onClick={() => logout()} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Logout</button>
@@ -361,7 +360,7 @@ export default function OwnerDashboard() {
 
           <div style={{ marginBottom: '2rem', borderBottom: '2px solid #e0e0e0' }}>
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-              {['overview', 'analytics', 'transactions', 'inventory', 'supervisors', 'branches'].map(tab => (
+              {['overview', 'analytics', 'transactions', 'supervisors', 'branches'].map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)} style={{ background: activeTab === tab ? '#006633' : 'transparent', color: activeTab === tab ? 'white' : '#666', border: 'none', padding: '1rem 1.5rem', cursor: 'pointer', fontWeight: 'bold', borderBottom: activeTab === tab ? '3px solid #006633' : '3px solid transparent', fontSize: '1rem' }}>
                   {tab === 'analytics' ? '📊 Analytics' : tab.charAt(0).toUpperCase() + tab.slice(1)}
                 </button>
@@ -586,48 +585,6 @@ export default function OwnerDashboard() {
                       ))}
                     </tbody>
                   </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'inventory' && (
-            <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-              <h2 style={{ margin: '0 0 1.5rem 0', color: '#006633' }}>📦 Inventory Status</h2>
-              {loading ? (
-                <div style={{ textAlign: 'center', padding: '4rem', color: '#999' }}>
-                  <div style={{ fontSize: '4rem', marginBottom: '1rem', animation: 'spin 1s linear infinite' }}>⏳</div>
-                  <p style={{ fontSize: '1.1rem', fontWeight: '500' }}>Loading inventory...</p>
-                </div>
-              ) : inventory.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '4rem' }}>
-                  <div style={{ fontSize: '5rem', marginBottom: '1rem' }}>📦</div>
-                  <p style={{ color: '#999', marginBottom: '0.5rem', fontSize: '1.3rem', fontWeight: '600' }}>No inventory items yet</p>
-                  <p style={{ color: '#666', fontSize: '1rem', maxWidth: '450px', margin: '0 auto' }}>
-                    Your supervisor can add inventory items like soap, wax, and cleaning supplies from their dashboard
-                  </p>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
-                  {inventory.map((item) => (
-                    <div key={item.id} style={{ background: 'white', border: '2px solid #e0e0e0', padding: '1.5rem', borderRadius: '12px', borderLeft: `4px solid ${item.current_stock <= item.reorder_level ? '#f44336' : '#4caf50'}` }}>
-                      <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem' }}>{item.item_name}</h3>
-                      <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.75rem' }}>
-                        <span style={{ background: '#f0f0f0', padding: '0.25rem 0.5rem', borderRadius: '4px' }}>{item.category}</span>
-                      </div>
-                      <div style={{ fontSize: '2rem', fontWeight: 'bold', margin: '1rem 0', color: item.current_stock <= item.reorder_level ? '#f44336' : '#006633' }}>
-                        {item.current_stock} {item.unit}
-                      </div>
-                      <div style={{ fontSize: '0.85rem', color: '#666' }}>
-                        Reorder at: {item.reorder_level} {item.unit}
-                      </div>
-                      {item.current_stock <= item.reorder_level && (
-                        <div style={{ background: '#ffebee', color: '#c62828', padding: '0.75rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 'bold', marginTop: '1rem' }}>
-                          ⚠️ Low Stock - Reorder Soon!
-                        </div>
-                      )}
-                    </div>
-                  ))}
                 </div>
               )}
             </div>
