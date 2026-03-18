@@ -6,14 +6,23 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Get and sanitize input - convert empty strings to null for database
-    let { vehicleReg, phone, customerName, vehicleType, serviceId, bayId, staffId, businessId, serviceCategory } = req.body;
+    // Get and sanitize input
+    let { vehicleReg, phone, customerName, vehicleType, serviceId, bayId, staffIds, businessId, serviceCategory, paymentType } = req.body;
+    
+    // Convert staffIds to array if it's a single value
+    if (staffIds && !Array.isArray(staffIds)) {
+      staffIds = [staffIds];
+    }
     
     // Convert empty strings to null for integer fields
     serviceId = (serviceId === '' || serviceId === undefined || serviceId === null) ? null : parseInt(serviceId);
     bayId = (bayId === '' || bayId === undefined || bayId === null) ? null : parseInt(bayId);
-    staffId = (staffId === '' || staffId === undefined || staffId === null) ? null : parseInt(staffId);
     businessId = (businessId === '' || businessId === undefined || businessId === null) ? null : parseInt(businessId);
+    
+    // Convert staff IDs to integers
+    if (staffIds && staffIds.length > 0) {
+      staffIds = staffIds.map(id => parseInt(id)).filter(id => !isNaN(id));
+    }
 
     console.log('=== WALK-IN REGISTRATION START ===');
     console.log('Service Category:', serviceCategory);
@@ -23,8 +32,9 @@ export default async function handler(req, res) {
     console.log('Vehicle Type:', vehicleType);
     console.log('Service ID:', serviceId);
     console.log('Bay ID:', bayId);
-    console.log('Staff ID:', staffId);
+    console.log('Staff IDs:', staffIds);
     console.log('Business ID:', businessId);
+    console.log('Payment Type:', paymentType || 'cash');
     console.log('==================================');
 
     // Validate required fields
@@ -59,14 +69,14 @@ export default async function handler(req, res) {
     const branchId = branches[0].id;
     console.log('Branch ID:', branchId);
 
-    // Find existing customer by phone (one customer can have multiple cars!)
+    // Find existing customer by phone
     let customer = null;
     
     try {
       const customers = await query(
         `SELECT * FROM customers 
-         WHERE (phone = $1 OR phone_number = $1)
-         AND (business_id = $2 OR business_id IS NULL)
+         WHERE phone_number = $1
+         AND business_id = $2
          LIMIT 1`,
         [phone, businessId]
       );
@@ -83,53 +93,18 @@ export default async function handler(req, res) {
     if (!customer) {
       console.log('Creating new customer...');
       
-      // Check if business_id column exists
-      const hasBusinessId = await query(
-        `SELECT column_name 
-         FROM information_schema.columns 
-         WHERE table_name = 'customers' 
-         AND column_name = 'business_id'`
-      );
-
-      const useBusinessId = hasBusinessId && hasBusinessId.length > 0;
-
       try {
-        // Try with 'phone' column first
-        if (useBusinessId) {
-          customer = await querySingle(
-            `INSERT INTO customers (business_id, phone, full_name, loyalty_points, total_visits, created_at) 
-             VALUES ($1, $2, $3, 0, 0, NOW()) 
-             RETURNING *`,
-            [businessId, phone, customerName || 'Walk-in Customer']
-          );
-        } else {
-          customer = await querySingle(
-            `INSERT INTO customers (phone, full_name, loyalty_points, total_visits, created_at) 
-             VALUES ($1, $2, 0, 0, NOW()) 
-             RETURNING *`,
-            [phone, customerName || 'Walk-in Customer']
-          );
-        }
-      } catch (phoneError) {
-        // Fallback to 'phone_number' column
-        console.log('Trying phone_number column instead...');
-        if (useBusinessId) {
-          customer = await querySingle(
-            `INSERT INTO customers (business_id, phone_number, full_name, loyalty_points, total_visits, created_at) 
-             VALUES ($1, $2, $3, 0, 0, NOW()) 
-             RETURNING *`,
-            [businessId, phone, customerName || 'Walk-in Customer']
-          );
-        } else {
-          customer = await querySingle(
-            `INSERT INTO customers (phone_number, full_name, loyalty_points, total_visits, created_at) 
-             VALUES ($1, $2, 0, 0, NOW()) 
-             RETURNING *`,
-            [phone, customerName || 'Walk-in Customer']
-          );
-        }
+        customer = await querySingle(
+          `INSERT INTO customers (business_id, phone_number, full_name, loyalty_points, total_visits, outstanding_balance, created_at) 
+           VALUES ($1, $2, $3, 0, 0, 0, NOW()) 
+           RETURNING *`,
+          [businessId, phone, customerName || 'Walk-in Customer']
+        );
+        console.log('New customer created:', customer.id);
+      } catch (insertError) {
+        console.error('Customer insert error:', insertError.message);
+        throw new Error('Failed to create customer');
       }
-      console.log('New customer created:', customer.id);
     }
 
     // Find or create vehicle (ONLY for vehicle services)
@@ -164,8 +139,8 @@ export default async function handler(req, res) {
         console.log('Creating new vehicle...');
         try {
           vehicle = await querySingle(
-            'INSERT INTO vehicles (customer_id, registration_number, vehicle_type, model, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING *',
-            [customer.id, vehicleReg, vehicleType, vehicleType || 'Not specified']
+            'INSERT INTO vehicles (customer_id, registration_number, vehicle_type, created_at) VALUES ($1, $2, $3, NOW()) RETURNING *',
+            [customer.id, vehicleReg, vehicleType]
           );
           console.log('New vehicle created:', vehicle.id, 'for customer:', customer.id);
         } catch (insertError) {
@@ -194,18 +169,15 @@ export default async function handler(req, res) {
     let finalAmount;
     
     try {
-      // Get service details
       const service = await querySingle(
         'SELECT service_category, fixed_price FROM services WHERE id = $1',
         [serviceId]
       );
 
       if (service.service_category === 'other_service') {
-        // Use fixed price for other services
         finalAmount = parseFloat(service.fixed_price);
         console.log('Other service - using fixed price:', finalAmount);
       } else {
-        // Get vehicle type pricing for vehicle services
         const pricing = await querySingle(
           'SELECT base_price FROM service_pricing WHERE service_id = $1 AND vehicle_type = $2',
           [serviceId, vehicleType || 'sedan']
@@ -228,90 +200,113 @@ export default async function handler(req, res) {
 
     console.log('Final amount:', finalAmount);
 
+    // Set payment type and status
+    const finalPaymentType = paymentType || 'cash';
+    const paymentStatus = finalPaymentType === 'credit' ? 'unpaid' : 'pending';
+
+    console.log('Payment Type:', finalPaymentType);
+    console.log('Payment Status:', paymentStatus);
+
     // Generate queue number
     const todayCount = await query(
       `SELECT COUNT(*) as count FROM bookings 
-       WHERE branch_id = $1 AND DATE(booking_date) = CURRENT_DATE`,
+       WHERE branch_id = $1 AND DATE(created_at) = CURRENT_DATE`,
       [branchId]
     );
     const queueNumber = (parseInt(todayCount[0]?.count) || 0) + 1;
     console.log('Queue number:', queueNumber);
 
-    // Create booking - handle optional vehicle
-    let bookingSql = '';
-    let bookingParams = [];
+    // Create booking
+    let booking;
     
-    if (bayId && staffId) {
-      bookingSql = `INSERT INTO bookings (
-        branch_id, customer_id, ${vehicle ? 'vehicle_id,' : ''} service_id,
-        booking_date, booking_time,
-        total_amount, final_amount,
-        status, payment_status, booking_source,
-        bay_id, assigned_staff_id, created_at
-      ) VALUES ($1, $2, ${vehicle ? '$3, $4' : '$3'}, NOW(), NOW(), ${vehicle ? '$5, $6' : '$4, $5'}, 'pending', 'unpaid', 'walkin', ${vehicle ? '$7, $8' : '$6, $7'}, NOW())
-      RETURNING *`;
-      bookingParams = vehicle 
-        ? [branchId, customer.id, vehicle.id, serviceId, finalAmount, finalAmount, bayId, staffId]
-        : [branchId, customer.id, serviceId, finalAmount, finalAmount, bayId, staffId];
-    } else if (bayId && !staffId) {
-      bookingSql = `INSERT INTO bookings (
-        branch_id, customer_id, ${vehicle ? 'vehicle_id,' : ''} service_id,
-        booking_date, booking_time,
-        total_amount, final_amount,
-        status, payment_status, booking_source,
-        bay_id, created_at
-      ) VALUES ($1, $2, ${vehicle ? '$3, $4' : '$3'}, NOW(), NOW(), ${vehicle ? '$5, $6' : '$4, $5'}, 'pending', 'unpaid', 'walkin', ${vehicle ? '$7' : '$6'}, NOW())
-      RETURNING *`;
-      bookingParams = vehicle
-        ? [branchId, customer.id, vehicle.id, serviceId, finalAmount, finalAmount, bayId]
-        : [branchId, customer.id, serviceId, finalAmount, finalAmount, bayId];
-    } else if (!bayId && staffId) {
-      bookingSql = `INSERT INTO bookings (
-        branch_id, customer_id, ${vehicle ? 'vehicle_id,' : ''} service_id,
-        booking_date, booking_time,
-        total_amount, final_amount,
-        status, payment_status, booking_source,
-        assigned_staff_id, created_at
-      ) VALUES ($1, $2, ${vehicle ? '$3, $4' : '$3'}, NOW(), NOW(), ${vehicle ? '$5, $6' : '$4, $5'}, 'pending', 'unpaid', 'walkin', ${vehicle ? '$7' : '$6'}, NOW())
-      RETURNING *`;
-      bookingParams = vehicle
-        ? [branchId, customer.id, vehicle.id, serviceId, finalAmount, finalAmount, staffId]
-        : [branchId, customer.id, serviceId, finalAmount, finalAmount, staffId];
+    if (vehicle) {
+      // Vehicle service booking
+      const params = [branchId, customer.id, vehicle.id, serviceId, finalAmount, paymentStatus, finalPaymentType];
+      let paramIndex = 8;
+      let bayCol = '';
+      let bayVal = '';
+      
+      if (bayId) {
+        bayCol = 'bay_id,';
+        bayVal = `$${paramIndex},`;
+        params.push(bayId);
+        paramIndex++;
+      }
+      
+      booking = await querySingle(
+        `INSERT INTO bookings (
+          branch_id, customer_id, vehicle_id, service_id,
+          booking_date, booking_time,
+          total_amount, final_amount, payment_status, payment_type,
+          ${bayCol} created_at
+        ) VALUES ($1, $2, $3, $4, CURRENT_DATE, CURRENT_TIME, $5, $5, $6, $7, ${bayVal} NOW())
+        RETURNING *`,
+        params
+      );
     } else {
-      bookingSql = `INSERT INTO bookings (
-        branch_id, customer_id, ${vehicle ? 'vehicle_id,' : ''} service_id,
-        booking_date, booking_time,
-        total_amount, final_amount,
-        status, payment_status, booking_source, created_at
-      ) VALUES ($1, $2, ${vehicle ? '$3, $4' : '$3'}, NOW(), NOW(), ${vehicle ? '$5, $6' : '$4, $5'}, 'pending', 'unpaid', 'walkin', NOW())
-      RETURNING *`;
-      bookingParams = vehicle
-        ? [branchId, customer.id, vehicle.id, serviceId, finalAmount, finalAmount]
-        : [branchId, customer.id, serviceId, finalAmount, finalAmount];
+      // Other service booking (no vehicle)
+      booking = await querySingle(
+        `INSERT INTO bookings (
+          branch_id, customer_id, service_id,
+          booking_date, booking_time,
+          total_amount, final_amount, payment_status, payment_type,
+          created_at
+        ) VALUES ($1, $2, $3, CURRENT_DATE, CURRENT_TIME, $4, $4, $5, $6, NOW())
+        RETURNING *`,
+        [branchId, customer.id, serviceId, finalAmount, paymentStatus, finalPaymentType]
+      );
     }
 
-    const booking = await querySingle(bookingSql, bookingParams);
-    console.log('Booking created:', booking.id, 'Vehicle:', vehicle ? vehicle.id : 'None (other service)');
+    console.log('Booking created:', booking.id, 'Payment Type:', finalPaymentType);
 
-    // Update bay status if bay provided (only for vehicle services)
-    if (bayId && serviceCategory === 'vehicle_service') {
-      try {
+    // Assign staff to booking (multiple staff support)
+    if (staffIds && staffIds.length > 0) {
+      console.log('Assigning', staffIds.length, 'staff to booking');
+      
+      for (const staffId of staffIds) {
         await query(
-          `UPDATE bays 
-           SET status = 'occupied', 
-               current_booking_id = $1,
-               current_staff_id = $2
-           WHERE id = $3`,
-          [booking.id, staffId, bayId]
+          `INSERT INTO booking_staff (booking_id, staff_id, created_at)
+           VALUES ($1, $2, NOW())`,
+          [booking.id, staffId]
         );
-        console.log('Bay updated:', bayId);
-      } catch (bayError) {
-        console.log('Bay update failed (non-critical):', bayError.message);
+        console.log('Staff assigned:', staffId);
       }
-    } else if (serviceCategory === 'other_service') {
-      console.log('Other service - no bay needed');
+      
+      // Also set assigned_staff_id to first staff for backwards compatibility
+      await query(
+        `UPDATE bookings SET assigned_staff_id = $1 WHERE id = $2`,
+        [staffIds[0], booking.id]
+      );
+      
+      // Update bay with first staff if bay assigned
+      if (bayId && serviceCategory === 'vehicle_service') {
+        try {
+          await query(
+            `UPDATE bays 
+             SET status = 'occupied', 
+                 current_booking_id = $1,
+                 current_staff_id = $2
+             WHERE id = $3`,
+            [booking.id, staffIds[0], bayId]
+          );
+          console.log('Bay updated:', bayId, 'with staff:', staffIds[0]);
+        } catch (bayError) {
+          console.log('Bay update failed (non-critical):', bayError.message);
+        }
+      }
     } else {
-      console.log('No bay assigned - car queued');
+      console.log('No staff assigned to booking');
+    }
+
+    // Update customer outstanding balance if credit
+    if (finalPaymentType === 'credit') {
+      await query(
+        `UPDATE customers 
+         SET outstanding_balance = COALESCE(outstanding_balance, 0) + $1
+         WHERE id = $2`,
+        [finalAmount, customer.id]
+      );
+      console.log('Customer outstanding balance updated +', finalAmount);
     }
 
     // Update customer stats
@@ -345,16 +340,21 @@ export default async function handler(req, res) {
     console.log('Queue #:', queueNumber);
     console.log('Vehicle:', vehicleReg || 'N/A (other service)');
     console.log('Bay:', bayNumber);
-    console.log('Staff ID:', staffId || 'Not assigned');
+    console.log('Staff Count:', staffIds?.length || 0);
     console.log('Amount: Kshs', finalAmount);
+    console.log('Payment:', finalPaymentType);
     console.log('======================================');
 
     return res.status(201).json({
       success: true,
-      message: 'Customer registered successfully',
+      message: finalPaymentType === 'credit' 
+        ? 'Customer registered - added to unpaid bills' 
+        : 'Customer registered successfully',
       queueNumber,
       bayNumber,
       amount: finalAmount,
+      paymentType: finalPaymentType,
+      staffCount: staffIds?.length || 0,
       booking: {
         id: booking.id,
         vehicleReg: vehicleReg || null,

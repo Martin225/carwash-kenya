@@ -47,15 +47,14 @@ export default async function handler(req, res) {
         owner_name, 
         email, 
         phone, 
-        location, 
         subscription_plan,
         subscription_status, 
         trial_ends_at,
         is_active
       )
-      VALUES ($1, $2, $3, $4, $5, $6, 'trial', $7, false)
+      VALUES ($1, $2, $3, $4, $5, 'trial', $6, false)
       RETURNING id`,
-      [businessName, ownerName, email, phone, location, plan, trialEndDate]
+      [businessName, ownerName, email, phone, plan, trialEndDate]
     );
 
     const businessId = business.id;
@@ -71,20 +70,45 @@ export default async function handler(req, res) {
       [businessId, ownerName, email, phone, hashedPassword]
     );
 
-    // Create default branch
+    // Generate branch code (e.g., "BR001" for first branch)
+    const branchCode = `BR${String(businessId).padStart(3, '0')}-001`;
+
+    // Create default branch with branch_code
     const branch = await querySingle(
-      `INSERT INTO branches (business_id, branch_name, location, is_active)
+      `INSERT INTO branches (business_id, branch_name, branch_code, is_active)
        VALUES ($1, $2, $3, true)
        RETURNING id`,
-      [businessId, businessName + ' - Main Branch', location]
+      [businessId, businessName + ' - Main Branch', branchCode]
     );
+
+    // Initialize 8 features for the new business (4 enabled, 4 disabled)
+    const features = [
+      { code: 'inventory_management', enabled: true },
+      { code: 'sms_notifications', enabled: true },
+      { code: 'credit_customers', enabled: true },
+      { code: 'multi_staff_assignment', enabled: true },
+      { code: 'loyalty_program', enabled: false },
+      { code: 'service_packages', enabled: false },
+      { code: 'online_booking', enabled: false },
+      { code: 'mobile_app', enabled: false }
+    ];
+
+    for (const feature of features) {
+      await query(
+        `INSERT INTO business_features (business_id, feature_code, is_enabled, enabled_at)
+         VALUES ($1, $2, $3, $4)`,
+        [businessId, feature.code, feature.enabled, feature.enabled ? new Date() : null]
+      );
+    }
 
     console.log('=== NEW BUSINESS SIGNUP ===');
     console.log('Business:', businessName);
     console.log('Owner:', ownerName);
     console.log('Email:', email);
     console.log('Plan:', plan.toUpperCase());
+    console.log('Branch Code:', branchCode);
     console.log('Trial ends:', trialEndDate.toLocaleDateString());
+    console.log('Features initialized: 8 (4 enabled, 4 disabled)');
     console.log('==========================');
 
     // Send verification email

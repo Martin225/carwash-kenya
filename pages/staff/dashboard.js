@@ -102,6 +102,12 @@ export default function StaffDashboard() {
             </div>
           </div>
         </div>
+<button 
+  onClick={() => router.push('/staff/my-commission')} 
+  style={{ background: '#ff9800', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+>
+  💰 My Commission
+</button>
 
         <div style={{ padding: '1rem' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1rem' }}>

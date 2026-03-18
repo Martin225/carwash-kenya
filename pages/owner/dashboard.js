@@ -19,7 +19,6 @@ export default function OwnerDashboard() {
     totalBookings: 0,
     activeCustomers: 0
   });
-  const [transactions, setTransactions] = useState([]);
   const [supervisors, setSupervisors] = useState([]);
   const [branches, setBranches] = useState([]);
   const [analytics, setAnalytics] = useState(null);
@@ -91,7 +90,6 @@ export default function OwnerDashboard() {
       
       if (data.success) {
         setStats(data.stats || stats);
-        setTransactions(data.transactions || []);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -306,6 +304,8 @@ export default function OwnerDashboard() {
               <button onClick={() => router.push('/owner/inventory')} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>📦 Inventory</button>
               <button onClick={() => router.push('/owner/payment-settings')} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>💳 Payments</button>
               <button onClick={() => router.push('/owner/reports')} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>📊 Reports</button>
+              <button onClick={() => router.push('/owner/commission-reports')} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>💰 Commissions</button>
+              <button onClick={() => router.push('/owner/settings')} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>⚙️ Settings</button>
               <button onClick={() => logout()} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Logout</button>
             </div>
           </div>
@@ -360,7 +360,7 @@ export default function OwnerDashboard() {
 
           <div style={{ marginBottom: '2rem', borderBottom: '2px solid #e0e0e0' }}>
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-              {['overview', 'analytics', 'transactions', 'supervisors', 'branches'].map(tab => (
+              {['overview', 'analytics', 'supervisors', 'branches'].map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)} style={{ background: activeTab === tab ? '#006633' : 'transparent', color: activeTab === tab ? 'white' : '#666', border: 'none', padding: '1rem 1.5rem', cursor: 'pointer', fontWeight: 'bold', borderBottom: activeTab === tab ? '3px solid #006633' : '3px solid transparent', fontSize: '1rem' }}>
                   {tab === 'analytics' ? '📊 Analytics' : tab.charAt(0).toUpperCase() + tab.slice(1)}
                 </button>
@@ -369,20 +369,56 @@ export default function OwnerDashboard() {
           </div>
 
           {activeTab === 'overview' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-              {[
-                { label: 'Total Revenue', value: `Kshs ${(stats.totalRevenue || 0).toLocaleString()}`, icon: '💰', color: '#006633' },
-                { label: 'Today Revenue', value: `Kshs ${(stats.todayRevenue || 0).toLocaleString()}`, icon: '📊', color: '#0066cc' },
-                { label: 'Total Bookings', value: stats.totalBookings || 0, icon: '🚗', color: '#ff9900' },
-                { label: 'Active Customers', value: stats.activeCustomers || 0, icon: '👥', color: '#9c27b0' }
-              ].map((stat, i) => (
-                <div key={i} style={{ background: 'white', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', borderLeft: `4px solid ${stat.color}`, transition: 'transform 0.2s, box-shadow 0.2s' }} onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)'; }} onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)'; }}>
-                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>{stat.icon}</div>
-                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: stat.color }}>{stat.value}</div>
-                  <div style={{ color: '#666', marginTop: '0.5rem' }}>{stat.label}</div>
-                </div>
-              ))}
-            </div>
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+                {[
+                  { label: 'Total Revenue', value: `Kshs ${(stats.totalRevenue || 0).toLocaleString()}`, icon: '💰', color: '#006633' },
+                  { label: 'Today Revenue', value: `Kshs ${(stats.todayRevenue || 0).toLocaleString()}`, icon: '📊', color: '#0066cc' },
+                  { label: 'Total Bookings', value: stats.totalBookings || 0, icon: '🚗', color: '#ff9900' },
+                  { label: 'Active Customers', value: stats.activeCustomers || 0, icon: '👥', color: '#9c27b0' }
+                ].map((stat, i) => (
+                  <div key={i} style={{ background: 'white', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', borderLeft: `4px solid ${stat.color}`, transition: 'transform 0.2s, box-shadow 0.2s' }} onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)'; }} onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)'; }}>
+                    <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>{stat.icon}</div>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: stat.color }}>{stat.value}</div>
+                    <div style={{ color: '#666', marginTop: '0.5rem' }}>{stat.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* TRANSACTION HISTORY CARD */}
+              <div style={{ background: 'white', borderRadius: '12px', padding: '2.5rem', marginBottom: '2rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', textAlign: 'center' }}>
+                <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>💰</div>
+                <h2 style={{ margin: '0 0 0.5rem 0', color: '#006633', fontSize: '1.8rem' }}>Transaction History & Reports</h2>
+                <p style={{ color: '#666', marginBottom: '2rem', fontSize: '1.1rem', maxWidth: '600px', margin: '0 auto 2rem' }}>
+                  View detailed transaction history with date filters, payment methods breakdown, staff performance, and export reports to Excel
+                </p>
+                <button 
+                  onClick={() => router.push('/owner/reports')} 
+                  style={{ 
+                    background: '#006633', 
+                    color: 'white', 
+                    border: 'none', 
+                    padding: '1.25rem 3rem', 
+                    borderRadius: '12px', 
+                    cursor: 'pointer', 
+                    fontWeight: 'bold', 
+                    fontSize: '1.1rem',
+                    boxShadow: '0 4px 12px rgba(0,102,51,0.3)',
+                    transition: 'transform 0.2s, box-shadow 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,102,51,0.4)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,102,51,0.3)';
+                  }}
+                >
+                  📊 View All Transactions & Reports →
+                </button>
+              </div>
+            </>
           )}
 
           {activeTab === 'analytics' && (
@@ -538,53 +574,6 @@ export default function OwnerDashboard() {
                 <div style={{ textAlign: 'center', padding: '4rem' }}>
                   <div style={{ fontSize: '4rem', marginBottom: '1rem', animation: 'spin 1s linear infinite' }}>⏳</div>
                   <p style={{ fontSize: '1.1rem', fontWeight: '500', color: '#999' }}>Loading analytics...</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'transactions' && (
-            <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-              <h2 style={{ margin: '0 0 1.5rem 0', color: '#006633' }}>💰 All Transactions</h2>
-              {loading ? (
-                <div style={{ textAlign: 'center', padding: '4rem', color: '#999' }}>
-                  <div style={{ fontSize: '4rem', marginBottom: '1rem', animation: 'spin 1s linear infinite' }}>⏳</div>
-                  <p style={{ fontSize: '1.1rem', fontWeight: '500' }}>Loading transactions...</p>
-                </div>
-              ) : transactions.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '4rem' }}>
-                  <div style={{ fontSize: '5rem', marginBottom: '1rem' }}>📭</div>
-                  <p style={{ color: '#999', marginBottom: '0.5rem', fontSize: '1.3rem', fontWeight: '600' }}>No transactions yet</p>
-                  <p style={{ color: '#666', fontSize: '1rem', maxWidth: '450px', margin: '0 auto' }}>
-                    Transactions will appear here once customers start using your service
-                  </p>
-                </div>
-              ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ background: '#f9f9f9', borderBottom: '2px solid #e0e0e0' }}>
-                        <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>Date</th>
-                        <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>Vehicle</th>
-                        <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600' }}>Service</th>
-                        <th style={{ padding: '1rem', textAlign: 'right', fontWeight: '600' }}>Amount</th>
-                        <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '600' }}>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {transactions.map((txn) => (
-                        <tr key={txn.id} style={{ borderBottom: '1px solid #e0e0e0' }}>
-                          <td style={{ padding: '1rem' }}>{new Date(txn.created_at).toLocaleDateString()}</td>
-                          <td style={{ padding: '1rem', fontWeight: '500' }}>🚗 {txn.vehicle_reg}</td>
-                          <td style={{ padding: '1rem' }}>{txn.service_name}</td>
-                          <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 'bold', color: '#006633' }}>Kshs {txn.final_amount}</td>
-                          <td style={{ padding: '1rem', textAlign: 'center' }}>
-                            <span style={{ padding: '0.35rem 0.85rem', borderRadius: '16px', fontSize: '0.85rem', fontWeight: '600', background: '#e8f5e9', color: '#2e7d32' }}>✓ {txn.status}</span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
                 </div>
               )}
             </div>

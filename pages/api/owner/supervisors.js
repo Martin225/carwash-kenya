@@ -35,6 +35,10 @@ export default async function handler(req, res) {
         return res.status(400).json({ success: false, message: 'Business ID required' });
       }
 
+      if (!branchId) {
+        return res.status(400).json({ success: false, message: 'Branch assignment required' });
+      }
+
       const existing = await query(
         'SELECT id FROM users WHERE email = $1',
         [email]
@@ -48,32 +52,43 @@ export default async function handler(req, res) {
       const hashedPassword = await bcrypt.hash(password, 10);
 
       const newSupervisor = await querySingle(
-        `INSERT INTO users (business_id, full_name, email, phone, role, password_hash, is_active)
-         VALUES ($1, $2, $3, $4, 'supervisor', $5, true)
+        `INSERT INTO users (business_id, branch_id, full_name, email, phone, role, password_hash, is_active)
+         VALUES ($1, $2, $3, $4, $5, 'supervisor', $6, true)
          RETURNING *`,
-        [businessId, fullName, email, phone, hashedPassword]
+        [businessId, branchId, fullName, email, phone, hashedPassword]
       );
 
       console.log('=== NEW SUPERVISOR ADDED ===');
       console.log('Name:', fullName);
       console.log('Email:', email);
       console.log('Business ID:', businessId);
+      console.log('Branch ID:', branchId);
       console.log('===========================');
 
       return res.status(201).json({ success: true, supervisor: newSupervisor });
     } catch (error) {
+      console.error('Create supervisor error:', error);
       return res.status(500).json({ success: false, message: error.message });
     }
   }
 
   if (req.method === 'PUT') {
     try {
-      const { supervisorId, isActive } = req.body;
+      const { supervisorId, isActive, branchId } = req.body;
 
-      await query(
-        'UPDATE users SET is_active = $1 WHERE id = $2',
-        [isActive, supervisorId]
-      );
+      // If updating branch assignment
+      if (branchId !== undefined) {
+        await query(
+          'UPDATE users SET branch_id = $1, is_active = $2 WHERE id = $3',
+          [branchId, isActive !== undefined ? isActive : true, supervisorId]
+        );
+      } else {
+        // Just updating active status
+        await query(
+          'UPDATE users SET is_active = $1 WHERE id = $2',
+          [isActive, supervisorId]
+        );
+      }
 
       return res.status(200).json({ success: true });
     } catch (error) {

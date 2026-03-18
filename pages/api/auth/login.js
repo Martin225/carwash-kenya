@@ -75,6 +75,7 @@ export default async function handler(req, res) {
       phone: user.phone,
       role: user.role,
       business_id: user.business_id,
+      branch_id: user.branch_id,  
       business_name: business?.business_name,
       trial_ends_at: business?.trial_ends_at,
       subscription_status: business?.subscription_status

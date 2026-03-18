@@ -15,11 +15,17 @@ export default function StaffManagement() {
   const [confirmReset, setConfirmReset] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [resetting, setResetting] = useState(false);
+  
+  // NEW: Edit commission states
+  const [showEditCommission, setShowEditCommission] = useState(false);
+  const [editingStaff, setEditingStaff] = useState(null);
+  const [newCommissionPercent, setNewCommissionPercent] = useState('');
+  
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
     pinCode: '',
-    commission: ''
+    commissionPercentage: '10'  // CHANGED: from 'commission' to 'commissionPercentage'
   });
 
   useEffect(() => {
@@ -55,13 +61,43 @@ export default function StaffManagement() {
       if (data.success) {
         showToast('✅ Staff member added successfully!', 'success');
         setShowAdd(false);
-        setFormData({ fullName: '', phone: '', pinCode: '', commission: '' });
+        setFormData({ fullName: '', phone: '', pinCode: '', commissionPercentage: '10' });
         loadStaff();
       } else {
         showToast(data.message || 'Failed to add staff', 'error');
       }
     } catch (error) {
       showToast('Network error. Please try again.', 'error');
+    }
+  }
+
+  // NEW: Handle update commission
+  async function handleUpdateCommission(e) {
+    e.preventDefault();
+    
+    try {
+      const response = await fetch('/api/owner/staff', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          staffId: editingStaff.id,
+          commissionPercentage: parseFloat(newCommissionPercent)
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        showToast('✅ Commission updated!', 'success');
+        setShowEditCommission(false);
+        setEditingStaff(null);
+        setNewCommissionPercent('');
+        loadStaff();
+      } else {
+        showToast(data.message, 'error');
+      }
+    } catch (error) {
+      showToast('Failed to update commission', 'error');
     }
   }
 
@@ -113,7 +149,6 @@ export default function StaffManagement() {
   async function resetPin(staffId, staffPhone, staffName) {
     setResetting(true);
     try {
-      // Generate random 4-digit PIN
       const newPin = Math.floor(1000 + Math.random() * 9000).toString();
 
       const response = await fetch('/api/supervisor/reset-staff-pin', {
@@ -171,8 +206,8 @@ export default function StaffManagement() {
             </div>
           ) : (
             <div style={{ background: 'white', borderRadius: '12px', overflow: 'auto', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-              {/* Table Header */}
-              <div style={{ background: '#f9f9f9', padding: '1rem 1.5rem', borderBottom: '2px solid #e0e0e0', display: 'grid', gridTemplateColumns: '200px 150px 100px 120px 100px 400px', gap: '1rem', fontWeight: 'bold', fontSize: '0.9rem', color: '#666', minWidth: '1070px' }}>
+              {/* Table Header - UPDATED with Edit column */}
+              <div style={{ background: '#f9f9f9', padding: '1rem 1.5rem', borderBottom: '2px solid #e0e0e0', display: 'grid', gridTemplateColumns: '200px 150px 100px 120px 100px 480px', gap: '1rem', fontWeight: 'bold', fontSize: '0.9rem', color: '#666', minWidth: '1150px' }}>
                 <div>Name</div>
                 <div>Phone</div>
                 <div>PIN</div>
@@ -181,39 +216,66 @@ export default function StaffManagement() {
                 <div>Actions</div>
               </div>
 
-              {/* Staff Rows */}
+              {/* Staff Rows - UPDATED */}
               {staff.map((member) => (
-                <div key={member.id} style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #f0f0f0', display: 'grid', gridTemplateColumns: '200px 150px 100px 120px 100px 400px', gap: '1rem', alignItems: 'center', background: member.is_active ? 'white' : '#fafafa', minWidth: '1070px' }}>
+                <div key={member.id} style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #f0f0f0', display: 'grid', gridTemplateColumns: '200px 150px 100px 120px 100px 480px', gap: '1rem', alignItems: 'center', background: member.is_active ? 'white' : '#fafafa', minWidth: '1150px' }}>
                   <div style={{ fontWeight: '600', color: '#333' }}>{member.full_name}</div>
                   <div style={{ fontSize: '0.9rem', color: '#666' }}>📞 {member.phone_number}</div>
                   <div style={{ fontSize: '0.85rem', color: '#999', fontFamily: 'monospace' }}>••••</div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#006633' }}>Kshs {member.commission_per_car || 50}</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#006633' }}>
+                    {member.commission_percentage}%
+                  </div>
                   <div>
                     <span style={{ background: member.is_active ? '#e8f5e9' : '#ffebee', color: member.is_active ? '#2e7d32' : '#c62828', padding: '0.35rem 0.75rem', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
                       {member.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </div>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-  <button 
-    onClick={() => toggleStaff(member.id, member.is_active)} 
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {/* EDIT COMMISSION BUTTON - NEW */}
+                    <button
+                      onClick={() => {
+                        setEditingStaff(member);
+                        setNewCommissionPercent(member.commission_percentage);
+                        setShowEditCommission(true);
+                      }}
+                      style={{ 
+                        padding: '0.5rem 0.75rem', 
+                        background: '#2196f3', 
+                        color: 'white', 
+                        border: 'none', 
+                        borderRadius: '6px', 
+                        cursor: 'pointer', 
+                        fontWeight: 'bold', 
+                        fontSize: '0.8rem', 
+                        whiteSpace: 'nowrap' 
+                      }}
+                      title="Edit Commission %"
+                    >
+                      ✏️ Edit %
+                    </button>
+                    
+                    <button 
+                      onClick={() => toggleStaff(member.id, member.is_active)} 
                       style={{ padding: '0.5rem 0.75rem', background: member.is_active ? '#ff9800' : '#4caf50', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
                       title={member.is_active ? 'Deactivate' : 'Activate'}
                     >
-                      {member.is_active ? '⏸️ Deactivate' : '✓ Activate'}
+                      {member.is_active ? '⏸️ Pause' : '✓ Activate'}
                     </button>
+                    
                     <button 
-  onClick={() => setConfirmReset(member)} 
-  style={{ padding: '0.5rem 0.75rem', background: '#2196f3', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
-  title="Reset PIN"
->
-  🔑 Reset PIN
-</button>
+                      onClick={() => setConfirmReset(member)} 
+                      style={{ padding: '0.5rem 0.75rem', background: '#9c27b0', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+                      title="Reset PIN"
+                    >
+                      🔑 PIN
+                    </button>
+                    
                     <button 
                       onClick={() => setConfirmDelete(member)} 
                       style={{ padding: '0.5rem 0.75rem', background: '#f44336', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
                       title="Delete permanently"
                     >
-                      🗑️ Delete
+                      🗑️ Del
                     </button>
                   </div>
                 </div>
@@ -223,7 +285,7 @@ export default function StaffManagement() {
         </div>
       </div>
 
-      {/* ADD STAFF MODAL */}
+      {/* ADD STAFF MODAL - UPDATED */}
       {showAdd && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }} onClick={() => setShowAdd(false)}>
           <div style={{ background: 'white', padding: '2rem', borderRadius: '20px', maxWidth: '500px', width: '100%' }} onClick={(e) => e.stopPropagation()}>
@@ -231,12 +293,26 @@ export default function StaffManagement() {
             <form onSubmit={handleAdd}>
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Full Name *</label>
-                <input type="text" value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} required placeholder="e.g., John Kamau" style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} />
+                <input 
+                  type="text" 
+                  value={formData.fullName} 
+                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} 
+                  required 
+                  placeholder="e.g., John Kamau" 
+                  style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} 
+                />
               </div>
 
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Phone Number *</label>
-                <input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} required placeholder="0722XXXXXX" style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} />
+                <input 
+                  type="tel" 
+                  value={formData.phone} 
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })} 
+                  required 
+                  placeholder="0722XXXXXX" 
+                  style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} 
+                />
                 <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem' }}>Used for staff login</div>
               </div>
 
@@ -252,14 +328,143 @@ export default function StaffManagement() {
                 <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem' }}>Staff will use this PIN to login</div>
               </div>
 
+              {/* FIXED: Commission Percentage */}
               <div style={{ marginBottom: '1.5rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Commission per Car (Kshs) *</label>
-                <input type="number" value={formData.commission} onChange={(e) => setFormData({ ...formData, commission: e.target.value })} required placeholder="e.g., 50" min="0" style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} />
-                <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem' }}>Amount staff earns per completed car wash</div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                  Commission Percentage (%) *
+                </label>
+                <input 
+                  type="number" 
+                  value={formData.commissionPercentage}
+                  onChange={(e) => setFormData({ ...formData, commissionPercentage: e.target.value })}
+                  required
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  placeholder="10"
+                  style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }}
+                />
+                <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem' }}>
+                  Default: 10% | Range: 0-100%
+                </div>
               </div>
 
               <button type="submit" style={{ width: '100%', padding: '1rem', background: '#006633', color: 'white', border: 'none', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer', marginBottom: '0.5rem' }}>Add Staff Member</button>
               <button type="button" onClick={() => setShowAdd(false)} style={{ width: '100%', padding: '0.75rem', background: '#f0f0f0', color: '#666', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Cancel</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT COMMISSION MODAL - NEW */}
+      {showEditCommission && editingStaff && (
+        <div 
+          style={{ 
+            position: 'fixed', 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0, 
+            background: 'rgba(0,0,0,0.7)', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            zIndex: 1000,
+            padding: '1rem'
+          }} 
+          onClick={() => setShowEditCommission(false)}
+        >
+          <div 
+            style={{ 
+              background: 'white', 
+              padding: '2rem', 
+              borderRadius: '20px', 
+              maxWidth: '450px', 
+              width: '100%'
+            }} 
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ color: '#006633', marginBottom: '0.5rem' }}>✏️ Edit Commission</h2>
+            <p style={{ color: '#666', marginBottom: '1.5rem' }}>
+              Update commission percentage for <strong>{editingStaff.full_name}</strong>
+            </p>
+
+            <form onSubmit={handleUpdateCommission}>
+              <div style={{ background: '#f9f9f9', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
+                <div style={{ fontSize: '0.85rem', color: '#999', marginBottom: '0.25rem' }}>
+                  Current Commission
+                </div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f57c00' }}>
+                  {editingStaff.commission_percentage}%
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                  New Commission Percentage (%) *
+                </label>
+                <input
+                  type="number"
+                  value={newCommissionPercent}
+                  onChange={(e) => setNewCommissionPercent(e.target.value)}
+                  required
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  placeholder={editingStaff.commission_percentage}
+                  style={{ 
+                    width: '100%', 
+                    padding: '0.75rem', 
+                    border: '2px solid #e0e0e0', 
+                    borderRadius: '8px', 
+                    fontSize: '1.2rem',
+                    fontWeight: 'bold',
+                    boxSizing: 'border-box',
+                    textAlign: 'center'
+                  }}
+                />
+                <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem', textAlign: 'center' }}>
+                  Enter a value between 0 and 100
+                </div>
+              </div>
+
+              <div style={{ background: '#e3f2fd', padding: '0.75rem', borderRadius: '8px', marginBottom: '1.5rem', fontSize: '0.85rem', color: '#1976d2' }}>
+                💡 <strong>Note:</strong> This will affect future jobs. Past commissions remain unchanged.
+              </div>
+
+              <button 
+                type="submit"
+                style={{ 
+                  width: '100%', 
+                  background: '#4caf50', 
+                  color: 'white', 
+                  border: 'none', 
+                  padding: '1rem', 
+                  borderRadius: '8px', 
+                  cursor: 'pointer', 
+                  fontWeight: 'bold',
+                  fontSize: '1rem',
+                  marginBottom: '0.5rem'
+                }}
+              >
+                ✓ Update Commission
+              </button>
+
+              <button 
+                type="button"
+                onClick={() => setShowEditCommission(false)}
+                style={{ 
+                  width: '100%', 
+                  background: '#f0f0f0', 
+                  color: '#666', 
+                  border: 'none', 
+                  padding: '0.75rem', 
+                  borderRadius: '8px', 
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
             </form>
           </div>
         </div>
@@ -279,7 +484,7 @@ export default function StaffManagement() {
             </p>
             <div style={{ background: '#fff3e0', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', textAlign: 'left' }}>
               <p style={{ margin: '0.25rem 0', fontSize: '0.9rem', color: '#666' }}>📞 {confirmDelete.phone_number}</p>
-              <p style={{ margin: '0.25rem 0', fontSize: '0.9rem', color: '#666' }}>💰 Kshs {confirmDelete.commission_per_car || 50} per car</p>
+              <p style={{ margin: '0.25rem 0', fontSize: '0.9rem', color: '#666' }}>💰 {confirmDelete.commission_percentage}% commission</p>
             </div>
             <button
               onClick={() => deleteStaff(confirmDelete.id)}

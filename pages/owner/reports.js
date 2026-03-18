@@ -11,6 +11,18 @@ export default function Reports() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  
+  // NEW: Date filter states
+  const [filters, setFilters] = useState({
+    viewType: 'month',
+    month: new Date().getMonth() + 1,
+    year: new Date().getFullYear(),
+    startDate: '',
+    endDate: ''
+  });
+
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                      'July', 'August', 'September', 'October', 'November', 'December'];
 
   useEffect(() => {
     if (user && user.business_id) {
@@ -23,7 +35,23 @@ export default function Reports() {
   async function loadReports() {
     try {
       setLoading(true);
-      const response = await fetch(`/api/owner/reports?businessId=${user.business_id}`);
+      
+      // Build query params with date filters
+      let params = new URLSearchParams({ businessId: user.business_id });
+      
+      if (filters.viewType === 'week') {
+        params.append('period', 'week');
+      } else if (filters.viewType === 'month') {
+        params.append('month', filters.month);
+        params.append('year', filters.year);
+      } else if (filters.viewType === 'year') {
+        params.append('year', filters.year);
+      } else if (filters.viewType === 'custom' && filters.startDate && filters.endDate) {
+        params.append('startDate', filters.startDate);
+        params.append('endDate', filters.endDate);
+      }
+      
+      const response = await fetch(`/api/owner/reports?${params}`);
       const result = await response.json();
       
       if (result.success) {
@@ -82,7 +110,6 @@ export default function Reports() {
         return;
       }
 
-      // Create CSV content
       const headers = ['Date', 'Vehicle', 'Customer', 'Phone', 'Service', 'Amount', 'Payment Method', 'Reference', 'Staff', 'Branch'];
       
       const rows = data.transactions.map(t => [
@@ -102,12 +129,23 @@ export default function Reports() {
         .map(row => row.map(cell => `"${cell}"`).join(','))
         .join('\n');
 
-      // Download CSV file
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `transactions_${new Date().toISOString().split('T')[0]}.csv`;
+      
+      // Include date range in filename
+      let filename = 'transactions';
+      if (filters.viewType === 'month') {
+        filename += `_${monthNames[filters.month - 1]}_${filters.year}`;
+      } else if (filters.viewType === 'year') {
+        filename += `_${filters.year}`;
+      } else if (filters.viewType === 'custom') {
+        filename += `_${filters.startDate}_to_${filters.endDate}`;
+      }
+      filename += '.csv';
+      
+      link.download = filename;
       link.click();
       URL.revokeObjectURL(url);
 
@@ -191,16 +229,16 @@ export default function Reports() {
             </div>
           </div>
 
-          {/* OVERVIEW TAB */}
+          {/* REST OF THE TABS (keeping existing code) */}
           {activeTab === 'overview' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
               {/* Payment Methods */}
               <div style={{ background: 'white', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-                <h2 style={{ margin: '0 0 1.5rem 0', color: '#006633' }}>💳 Payment Methods (This Month)</h2>
+                <h2 style={{ margin: '0 0 1.5rem 0', color: '#006633' }}>💳 Payment Methods</h2>
                 {data?.paymentMethods?.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '2rem', color: '#999' }}>
                     <div style={{ fontSize: '3rem' }}>📭</div>
-                    <p>No payments this month</p>
+                    <p>No payments yet</p>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -231,7 +269,7 @@ export default function Reports() {
 
               {/* Daily Revenue Last 7 Days */}
               <div style={{ background: 'white', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-                <h2 style={{ margin: '0 0 1.5rem 0', color: '#006633' }}>📈 Daily Revenue (Last 7 Days)</h2>
+                <h2 style={{ margin: '0 0 1.5rem 0', color: '#006633' }}>📈 Daily Revenue</h2>
                 {data?.dailyRevenue?.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '2rem', color: '#999' }}>
                     <div style={{ fontSize: '3rem' }}>📭</div>
@@ -268,6 +306,126 @@ export default function Reports() {
           {/* TRANSACTIONS TAB */}
           {activeTab === 'transactions' && (
             <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+              {/* FILTERS INSIDE TRANSACTIONS TAB */}
+              <div style={{ background: '#f9f9f9', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem', border: '2px solid #e0e0e0' }}>
+                <h2 style={{ margin: '0 0 1rem 0', color: '#006633' }}>🔍 Filter Transactions</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                  
+                  {/* VIEW TYPE */}
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', fontSize: '0.9rem' }}>
+                      Period
+                    </label>
+                    <select
+                      value={filters.viewType}
+                      onChange={(e) => setFilters({ ...filters, viewType: e.target.value })}
+                      style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem' }}
+                    >
+                      <option value="week">This Week</option>
+                      <option value="month">Monthly</option>
+                      <option value="year">Yearly</option>
+                      <option value="custom">Custom Range</option>
+                    </select>
+                  </div>
+
+                  {/* MONTHLY SELECTOR */}
+                  {filters.viewType === 'month' && (
+                    <>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', fontSize: '0.9rem' }}>
+                          Month
+                        </label>
+                        <select
+                          value={filters.month}
+                          onChange={(e) => setFilters({ ...filters, month: parseInt(e.target.value) })}
+                          style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem' }}
+                        >
+                          {monthNames.map((name, idx) => (
+                            <option key={idx + 1} value={idx + 1}>{name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', fontSize: '0.9rem' }}>
+                          Year
+                        </label>
+                        <select
+                          value={filters.year}
+                          onChange={(e) => setFilters({ ...filters, year: parseInt(e.target.value) })}
+                          style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem' }}
+                        >
+                          {[2024, 2025, 2026, 2027].map(y => (
+                            <option key={y} value={y}>{y}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  )}
+
+                  {/* YEARLY SELECTOR */}
+                  {filters.viewType === 'year' && (
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', fontSize: '0.9rem' }}>
+                        Year
+                      </label>
+                      <select
+                        value={filters.year}
+                        onChange={(e) => setFilters({ ...filters, year: parseInt(e.target.value) })}
+                        style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem' }}
+                      >
+                        {[2024, 2025, 2026, 2027].map(y => (
+                          <option key={y} value={y}>{y}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* CUSTOM DATE RANGE */}
+                  {filters.viewType === 'custom' && (
+                    <>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', fontSize: '0.9rem' }}>
+                          Start Date
+                        </label>
+                        <input
+                          type="date"
+                          value={filters.startDate}
+                          onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+                          style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem' }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', fontSize: '0.9rem' }}>
+                          End Date
+                        </label>
+                        <input
+                          type="date"
+                          value={filters.endDate}
+                          onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+                          style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem' }}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {/* APPLY & DOWNLOAD BUTTONS */}
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
+                    <button
+                      onClick={loadReports}
+                      style={{ flex: 1, background: '#006633', color: 'white', border: 'none', padding: '0.75rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}
+                    >
+                      Apply
+                    </button>
+                    <button
+                      onClick={exportToExcel}
+                      style={{ flex: 1, background: '#4caf50', color: 'white', border: 'none', padding: '0.75rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}
+                    >
+                      📊 Excel
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
                 <h2 style={{ margin: 0, color: '#006633' }}>💰 Transaction History ({data?.transactions?.length || 0})</h2>
                 <button onClick={exportToExcel} style={{ background: '#006633', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>📥 Export to Excel</button>
@@ -276,7 +434,7 @@ export default function Reports() {
               {data?.transactions?.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '4rem' }}>
                   <div style={{ fontSize: '4rem' }}>📭</div>
-                  <p style={{ color: '#999' }}>No transactions yet</p>
+                  <p style={{ color: '#999' }}>No transactions in selected period</p>
                 </div>
               ) : (
                 <div style={{ overflowX: 'auto' }}>
@@ -296,7 +454,7 @@ export default function Reports() {
                     <tbody>
                       {data?.transactions?.map((txn, i) => (
                         <tr key={txn.id} style={{ borderBottom: '1px solid #f0f0f0', background: i % 2 === 0 ? 'white' : '#fafafa' }}>
-                          <td style={{ padding: '1rem', whiteSpace: 'nowrap', color: '#666', fontSize: '0.85rem' }}>{formatDate(txn.paid_at)}</td>
+                          <td style={{ padding: '1rem', whiteSpace: 'nowrap', color: '#666', fontSize: '0.85rem' }}>{formatDate(txn.created_at)}</td>
                           <td style={{ padding: '1rem', fontWeight: '600' }}>🚗 {txn.vehicle_reg}</td>
                           <td style={{ padding: '1rem' }}>
                             <div>{txn.customer_name}</div>
@@ -332,7 +490,7 @@ export default function Reports() {
           {/* STAFF PERFORMANCE TAB */}
           {activeTab === 'staff' && (
             <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-              <h2 style={{ margin: '0 0 1.5rem 0', color: '#006633' }}>👥 Staff Performance (This Month)</h2>
+              <h2 style={{ margin: '0 0 1.5rem 0', color: '#006633' }}>👥 Staff Performance</h2>
               {data?.staffPerformance?.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '4rem' }}>
                   <div style={{ fontSize: '4rem' }}>👥</div>
@@ -366,7 +524,7 @@ export default function Reports() {
           {/* SERVICES TAB */}
           {activeTab === 'services' && (
             <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-              <h2 style={{ margin: '0 0 1.5rem 0', color: '#006633' }}>✨ Service Breakdown (This Month)</h2>
+              <h2 style={{ margin: '0 0 1.5rem 0', color: '#006633' }}>✨ Service Breakdown</h2>
               {data?.serviceBreakdown?.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '4rem' }}>
                   <div style={{ fontSize: '4rem' }}>✨</div>

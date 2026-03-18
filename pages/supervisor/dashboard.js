@@ -23,18 +23,25 @@ export default function SupervisorDashboard() {
   const [loading, setLoading] = useState(true);
   const [showWalkIn, setShowWalkIn] = useState(false);
   const [walkInForm, setWalkInForm] = useState({
-  vehicleReg: '',
-  phone: '',
-  customerName: '',
-  serviceCategory: 'vehicle_service', // NEW!
-  vehicleType: 'sedan',
-  serviceId: '',
-  bayId: '',
-  staffId: ''
-});
+    vehicleReg: '',
+    phone: '',
+    customerName: '',
+    serviceCategory: 'vehicle_service',
+    vehicleType: 'sedan',
+    serviceId: '',
+    bayId: '',
+    staffIds: [],
+    paymentType: 'cash'
+  });
   const [walkInLoading, setWalkInLoading] = useState(false);
   const [customerSuggestions, setCustomerSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // NEW: ENABLED FEATURES STATE
+  const [enabledFeatures, setEnabledFeatures] = useState({
+    multi_staff_assignment: false,
+    credit_customers: false
+  });
 
   // PAYMENT RECORDING STATES
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -48,12 +55,32 @@ export default function SupervisorDashboard() {
   useEffect(() => {
     if (user && user.business_id) {
       loadData();
+      loadEnabledFeatures(); // NEW: Load features
       const interval = setInterval(loadData, 30000);
       return () => clearInterval(interval);
     } else {
       router.push('/login');
     }
   }, [user]);
+
+  // NEW: LOAD ENABLED FEATURES
+  async function loadEnabledFeatures() {
+    try {
+      const response = await fetch(`/api/features?businessId=${user.business_id}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        const features = {};
+        data.allFeatures.forEach(f => {
+          features[f.feature_code] = f.is_enabled;
+        });
+        setEnabledFeatures(features);
+        console.log('✅ Features loaded:', features);
+      }
+    } catch (error) {
+      console.error('❌ Failed to load features:', error);
+    }
+  }
 
   async function loadData() {
     try {
@@ -84,19 +111,18 @@ export default function SupervisorDashboard() {
   }
 
   async function loadServices(category, vehicleType) {
-  try {
-    const response = await fetch(`/api/supervisor/services?businessId=${user.business_id}`);
-    const data = await response.json();
-    
-    if (data.success) {
-      // Filter by category
-      let filtered = (data.services || []).filter(s => s.service_category === category);
-      setServices(filtered);
+    try {
+      const response = await fetch(`/api/supervisor/services?businessId=${user.business_id}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        let filtered = (data.services || []).filter(s => s.service_category === category);
+        setServices(filtered);
+      }
+    } catch (error) {
+      console.error('Error loading services:', error);
     }
-  } catch (error) {
-    console.error('Error loading services:', error);
   }
-}
 
   async function searchCustomer(searchText) {
     if (searchText.length < 3) {
@@ -106,7 +132,7 @@ export default function SupervisorDashboard() {
     }
 
     try {
-      const response = await fetch(`/api/search-vehicles?q=${encodeURIComponent(searchText)}`);
+      const response = await fetch(`/api/search-vehicles?q=${encodeURIComponent(searchText)}&businessId=${user.business_id}`);
       const data = await response.json();
       
       if (data.success && data.vehicles.length > 0) {
@@ -140,6 +166,41 @@ export default function SupervisorDashboard() {
     }
   }
 
+  function toggleStaff(staffId) {
+    setWalkInForm(prev => {
+      const currentStaff = prev.staffIds || [];
+      if (currentStaff.includes(staffId)) {
+        return { ...prev, staffIds: currentStaff.filter(id => id !== staffId) };
+      } else {
+        return { ...prev, staffIds: [...currentStaff, staffId] };
+      }
+    });
+  }
+
+  function calculateCommissionSplit() {
+    if (!walkInForm.serviceId || !walkInForm.staffIds || walkInForm.staffIds.length === 0) {
+      return null;
+    }
+    
+    const service = services.find(s => s.id === parseInt(walkInForm.serviceId));
+    if (!service) return null;
+    
+    const price = walkInForm.serviceCategory === 'other_service' 
+      ? service.fixed_price 
+      : service.pricing?.[walkInForm.vehicleType] || 0;
+    
+    const totalCommission = price * 0.10;
+    const commissionPerStaff = totalCommission / walkInForm.staffIds.length;
+    const percentagePerStaff = 100 / walkInForm.staffIds.length;
+    
+    return {
+      totalCommission,
+      commissionPerStaff,
+      percentagePerStaff,
+      staffCount: walkInForm.staffIds.length
+    };
+  }
+
   async function handleWalkIn(e) {
     e.preventDefault();
     setWalkInLoading(true);
@@ -156,7 +217,7 @@ export default function SupervisorDashboard() {
       if (data.success) {
         showToast(`Customer registered! Queue #${data.queueNumber} | Bay: ${data.bayNumber} | Amount: Kshs ${data.amount}`, 'success');
         setShowWalkIn(false);
-        setWalkInForm({ vehicleReg: '', phone: '', customerName: '', vehicleType: 'sedan', serviceId: '', bayId: '', staffId: '' });
+        setWalkInForm({ vehicleReg: '', phone: '', customerName: '', serviceCategory: 'vehicle_service', vehicleType: 'sedan', serviceId: '', bayId: '', staffIds: [], paymentType: 'cash' });
         loadData();
       } else {
         let errorMsg = data.message;
@@ -174,7 +235,6 @@ export default function SupervisorDashboard() {
     }
   }
 
-  // PAYMENT RECORDING FUNCTION
   async function handleRecordPayment(e) {
     e.preventDefault();
     setRecordingPayment(true);
@@ -214,14 +274,12 @@ export default function SupervisorDashboard() {
     cleaning: '#ff9800'
   };
 
-  // Get active bookings (completed but unpaid, or in-progress)
   const activeBookings = todayBookings.filter(b => 
-  (b.status === 'completed' && b.payment_status !== 'paid') || 
+  (b.status === 'completed' && b.payment_status !== 'paid' && b.payment_type !== 'credit') || 
   b.status === 'in-progress' ||
-  b.status === 'pending'  // ADD THIS LINE!
+  b.status === 'pending'
 );
 
-  // Get paid bookings from today
   const paidBookings = todayBookings.filter(b => 
     b.payment_status === 'paid'
   );
@@ -284,12 +342,14 @@ export default function SupervisorDashboard() {
             </div>
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               <button onClick={() => {
-  setShowWalkIn(true);
-  loadServices('vehicle_service', 'sedan'); // Load default services
-}} style={{ background: '#FCD116', color: '#006633', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>+ Drive-In Customer</button>
+                setShowWalkIn(true);
+                loadServices('vehicle_service', 'sedan');
+              }} style={{ background: '#FCD116', color: '#006633', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>+ Drive-In Customer</button>
               <button onClick={() => router.push('/supervisor/staff')} style={{ background: 'white', color: '#006633', border: '2px solid white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>👥 Manage Staff</button>
               <button onClick={() => router.push('/supervisor/inventory')} style={{ background: 'white', color: '#006633', border: '2px solid white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>📦 Inventory</button>
               <button onClick={() => router.push('/supervisor/services')} style={{ background: 'white', color: '#006633', border: '2px solid white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>✨ Services</button>
+              <button onClick={() => router.push('/supervisor/unpaid-bills')} style={{ background: 'white', color: '#006633', border: '2px solid white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>💳 Unpaid Bills</button>
+              <button onClick={() => router.push('/supervisor/commission-reports')} style={{ background: 'white', color: '#006633', border: '2px solid white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>💰 Commissions</button>
               <button onClick={() => loadData()} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>🔄 Refresh</button>
               <button onClick={() => logout()} style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid white', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Logout</button>
             </div>
@@ -336,7 +396,7 @@ export default function SupervisorDashboard() {
             </div>
           </div>
 
-          {/* ACTIVE BOOKINGS (UNPAID) */}
+          {/* ACTIVE BOOKINGS */}
           <div style={{ background: 'white', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
             <h2 style={{ margin: '0 0 1.5rem 0', color: '#006633' }}>💼 Active Bookings ({activeBookings.length})</h2>
             {activeBookings.length === 0 ? (
@@ -367,9 +427,8 @@ export default function SupervisorDashboard() {
                           </span>
                         )}
                         <span style={{ background: '#f3e5f5', color: '#7b1fa2', padding: '0.25rem 0.75rem', borderRadius: '12px', fontSize: '0.85rem' }}>
-                     👤 {booking.staff_name || 'Not assigned'}
-                    </span>
-
+                          👤 {booking.staff_name || 'Not assigned'}
+                        </span>
                       </div>
                       <span style={{ 
                         background: '#fff3e0',
@@ -514,294 +573,422 @@ export default function SupervisorDashboard() {
         </div>
       </div>
 
-      {/* WALK-IN MODAL */}
-     
-{showWalkIn && (
-  <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }} onClick={() => setShowWalkIn(false)}>
-    <div style={{ background: 'white', padding: '2rem', borderRadius: '20px', maxWidth: '650px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
-      <h2 style={{ color: '#006633', marginBottom: '0.5rem' }}>🚗 Drive-In Customer</h2>
-      <p style={{ color: '#666', marginBottom: '1.5rem' }}>Quick registration for customers who just drove in</p>
+      {/* WALK-IN MODAL WITH FEATURE CHECKING */}
+      {showWalkIn && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }} onClick={() => setShowWalkIn(false)}>
+          <div style={{ background: 'white', padding: '2rem', borderRadius: '20px', maxWidth: '650px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ color: '#006633', marginBottom: '0.5rem' }}>🚗 Drive-In Customer</h2>
+            <p style={{ color: '#666', marginBottom: '1.5rem' }}>Quick registration for customers who just drove in</p>
 
-      <form onSubmit={handleWalkIn}>
-        {/* SERVICE CATEGORY SELECTOR */}
-        <div style={{ marginBottom: '1.5rem', background: '#f0f7ff', padding: '1rem', borderRadius: '8px' }}>
-          <label style={{ display: 'block', marginBottom: '0.75rem', fontWeight: '600', color: '#006633' }}>
-            What are you servicing? *
-          </label>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <label style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              padding: '1rem', 
-              border: walkInForm.serviceCategory === 'vehicle_service' ? '3px solid #006633' : '2px solid #e0e0e0',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              background: walkInForm.serviceCategory === 'vehicle_service' ? '#e8f5e9' : 'white'
-            }}>
-              <input 
-                type="radio" 
-                name="serviceCategory"
-                value="vehicle_service"
-                checked={walkInForm.serviceCategory === 'vehicle_service'}
-                onChange={(e) => {
-                  setWalkInForm({ ...walkInForm, serviceCategory: e.target.value, serviceId: '' });
-                  loadServices(e.target.value, walkInForm.vehicleType);
-                }}
-                style={{ marginRight: '0.75rem' }}
-              />
-              <div>
-                <div style={{ fontWeight: 'bold' }}>🚗 Vehicle</div>
-                <div style={{ fontSize: '0.8rem', color: '#666' }}>Car, truck, motorcycle</div>
+            <form onSubmit={handleWalkIn}>
+              {/* SERVICE CATEGORY SELECTOR */}
+              <div style={{ marginBottom: '1.5rem', background: '#f0f7ff', padding: '1rem', borderRadius: '8px' }}>
+                <label style={{ display: 'block', marginBottom: '0.75rem', fontWeight: '600', color: '#006633' }}>
+                  What are you servicing? *
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <label style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    padding: '1rem', 
+                    border: walkInForm.serviceCategory === 'vehicle_service' ? '3px solid #006633' : '2px solid #e0e0e0',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    background: walkInForm.serviceCategory === 'vehicle_service' ? '#e8f5e9' : 'white'
+                  }}>
+                    <input 
+                      type="radio" 
+                      name="serviceCategory"
+                      value="vehicle_service"
+                      checked={walkInForm.serviceCategory === 'vehicle_service'}
+                      onChange={(e) => {
+                        setWalkInForm({ ...walkInForm, serviceCategory: e.target.value, serviceId: '' });
+                        loadServices(e.target.value, walkInForm.vehicleType);
+                      }}
+                      style={{ marginRight: '0.75rem' }}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 'bold' }}>🚗 Vehicle</div>
+                      <div style={{ fontSize: '0.8rem', color: '#666' }}>Car, truck, motorcycle</div>
+                    </div>
+                  </label>
+
+                  <label style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    padding: '1rem', 
+                    border: walkInForm.serviceCategory === 'other_service' ? '3px solid #006633' : '2px solid #e0e0e0',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    background: walkInForm.serviceCategory === 'other_service' ? '#e8f5e9' : 'white'
+                  }}>
+                    <input 
+                      type="radio" 
+                      name="serviceCategory"
+                      value="other_service"
+                      checked={walkInForm.serviceCategory === 'other_service'}
+                      onChange={(e) => {
+                        setWalkInForm({ ...walkInForm, serviceCategory: e.target.value, vehicleReg: '', serviceId: '' });
+                        loadServices(e.target.value, null);
+                      }}
+                      style={{ marginRight: '0.75rem' }}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 'bold' }}>🏠 Other</div>
+                      <div style={{ fontSize: '0.8rem', color: '#666' }}>Carpet, furniture, office</div>
+                    </div>
+                  </label>
+                </div>
               </div>
-            </label>
 
-            <label style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              padding: '1rem', 
-              border: walkInForm.serviceCategory === 'other_service' ? '3px solid #006633' : '2px solid #e0e0e0',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              background: walkInForm.serviceCategory === 'other_service' ? '#e8f5e9' : 'white'
-            }}>
-              <input 
-                type="radio" 
-                name="serviceCategory"
-                value="other_service"
-                checked={walkInForm.serviceCategory === 'other_service'}
-                onChange={(e) => {
-                  setWalkInForm({ ...walkInForm, serviceCategory: e.target.value, vehicleReg: '', serviceId: '' });
-                  loadServices(e.target.value, null);
-                }}
-                style={{ marginRight: '0.75rem' }}
-              />
-              <div>
-                <div style={{ fontWeight: 'bold' }}>🏠 Other</div>
-                <div style={{ fontSize: '0.8rem', color: '#666' }}>Carpet, furniture, office</div>
+              {/* VEHICLE REGISTRATION */}
+              <div style={{ marginBottom: '1rem', position: 'relative' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                  Vehicle Registration {walkInForm.serviceCategory === 'other_service' ? '(Optional)' : '*'}
+                </label>
+                <input 
+                  type="text" 
+                  value={walkInForm.vehicleReg} 
+                  onChange={(e) => {
+                    const value = e.target.value.toUpperCase();
+                    setWalkInForm({ ...walkInForm, vehicleReg: value });
+                    if (value.length >= 3 && walkInForm.serviceCategory === 'vehicle_service') {
+                      searchCustomer(value);
+                    }
+                  }} 
+                  required={walkInForm.serviceCategory === 'vehicle_service'}
+                  placeholder={walkInForm.serviceCategory === 'other_service' ? 'N/A (not needed for this service)' : 'KCA 123A (start typing...)'} 
+                  disabled={walkInForm.serviceCategory === 'other_service'}
+                  style={{ 
+                    width: '100%', 
+                    padding: '0.75rem', 
+                    border: '2px solid #e0e0e0', 
+                    borderRadius: '8px', 
+                    fontSize: '1rem', 
+                    boxSizing: 'border-box', 
+                    background: walkInForm.serviceCategory === 'other_service' ? '#f5f5f5' : 'white',
+                    cursor: walkInForm.serviceCategory === 'other_service' ? 'not-allowed' : 'text'
+                  }} 
+                  autoComplete="off"
+                />
+                
+                {showSuggestions && customerSuggestions.length > 0 && walkInForm.serviceCategory === 'vehicle_service' && (
+                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '2px solid #006633', borderRadius: '8px', maxHeight: '200px', overflowY: 'auto', zIndex: 1000, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+                    {customerSuggestions.map((vehicle, i) => (
+                      <div
+                        key={i}
+                        onClick={() => selectCustomer(vehicle)}
+                        style={{ padding: '0.75rem', cursor: 'pointer', borderBottom: '1px solid #f0f0f0' }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#f0f7ff'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+                      >
+                        <div style={{ fontWeight: 'bold', color: '#006633', marginBottom: '0.25rem' }}>
+                          🚗 {vehicle.registration_number}
+                        </div>
+                        <div style={{ fontSize: '0.85rem', color: '#666' }}>
+                          👤 {vehicle.customer_name} • 📞 {vehicle.customer_phone}
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: '#999', marginTop: '0.25rem' }}>
+                          🚙 Visits: {vehicle.total_visits} • ⭐ {vehicle.loyalty_points} points
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            </label>
-          </div>
-        </div>
 
-        {/* VEHICLE REGISTRATION - Conditional */}
-        <div style={{ marginBottom: '1rem', position: 'relative' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-            Vehicle Registration {walkInForm.serviceCategory === 'other_service' ? '(Optional)' : '*'}
-          </label>
-          <input 
-            type="text" 
-            value={walkInForm.vehicleReg} 
-            onChange={(e) => {
-              const value = e.target.value.toUpperCase();
-              setWalkInForm({ ...walkInForm, vehicleReg: value });
-              if (value.length >= 3 && walkInForm.serviceCategory === 'vehicle_service') {
-                searchCustomer(value);
-              }
-            }} 
-            required={walkInForm.serviceCategory === 'vehicle_service'}
-            placeholder={walkInForm.serviceCategory === 'other_service' ? 'N/A (not needed for this service)' : 'KCA 123A (start typing...)'} 
-            disabled={walkInForm.serviceCategory === 'other_service'}
-            style={{ 
-              width: '100%', 
-              padding: '0.75rem', 
-              border: '2px solid #e0e0e0', 
-              borderRadius: '8px', 
-              fontSize: '1rem', 
-              boxSizing: 'border-box', 
-              background: walkInForm.serviceCategory === 'other_service' ? '#f5f5f5' : 'white',
-              cursor: walkInForm.serviceCategory === 'other_service' ? 'not-allowed' : 'text'
-            }} 
-            autoComplete="off"
-          />
-          
-          {showSuggestions && customerSuggestions.length > 0 && walkInForm.serviceCategory === 'vehicle_service' && (
-            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '2px solid #006633', borderRadius: '8px', maxHeight: '200px', overflowY: 'auto', zIndex: 1000, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
-              {customerSuggestions.map((vehicle, i) => (
-                <div
-                  key={i}
-                  onClick={() => selectCustomer(vehicle)}
-                  style={{ padding: '0.75rem', cursor: 'pointer', borderBottom: '1px solid #f0f0f0' }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = '#f0f7ff'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+              {/* PHONE NUMBER */}
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Phone Number *</label>
+                <input 
+                  type="tel" 
+                  value={walkInForm.phone} 
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setWalkInForm({ ...walkInForm, phone: value });
+                    if (value.length >= 10) {
+                      searchCustomer(value);
+                    }
+                  }} 
+                  required 
+                  placeholder="0722XXXXXX" 
+                  style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} 
+                />
+              </div>
+
+              {/* CUSTOMER NAME */}
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Customer Name (Optional)</label>
+                <input 
+                  type="text" 
+                  value={walkInForm.customerName} 
+                  onChange={(e) => setWalkInForm({ ...walkInForm, customerName: e.target.value })} 
+                  placeholder="John Doe" 
+                  style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} 
+                />
+              </div>
+
+              {/* VEHICLE TYPE */}
+              {walkInForm.serviceCategory === 'vehicle_service' && (
+                <div style={{ marginBottom: '1rem' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Vehicle Type *</label>
+                  <select 
+                    value={walkInForm.vehicleType} 
+                    onChange={(e) => {
+                      const newType = e.target.value;
+                      setWalkInForm({ ...walkInForm, vehicleType: newType, serviceId: '' });
+                      loadServices(walkInForm.serviceCategory, newType);
+                    }} 
+                    required 
+                    style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }}
+                  >
+                    <option value="sedan">🚗 Sedan</option>
+                    <option value="suv">🚙 SUV</option>
+                    <option value="truck">🚚 Truck</option>
+                    <option value="matatu">🚐 Matatu</option>
+                  </select>
+                </div>
+              )}
+
+              {/* SERVICE SELECTION */}
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Service *</label>
+                <select 
+                  value={walkInForm.serviceId} 
+                  onChange={(e) => setWalkInForm({ ...walkInForm, serviceId: e.target.value })} 
+                  required 
+                  style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }}
                 >
-                  <div style={{ fontWeight: 'bold', color: '#006633', marginBottom: '0.25rem' }}>
-                    🚗 {vehicle.registration_number}
+                  <option value="">Select Service</option>
+                  {services.map(service => {
+                    const price = walkInForm.serviceCategory === 'other_service' 
+                      ? service.fixed_price 
+                      : service.pricing?.[walkInForm.vehicleType] || 0;
+                    
+                    return (
+                      <option key={service.id} value={service.id}>
+                        {service.name} - Kshs {price ? price.toLocaleString() : '0'}
+                      </option>
+                    );
+                  })}
+                </select>
+                {services.length === 0 && (
+                  <div style={{ fontSize: '0.85rem', color: '#f57c00', marginTop: '0.5rem', background: '#fff3e0', padding: '0.5rem', borderRadius: '4px' }}>
+                    ⚠️ No services available. Please add services first in Services menu.
                   </div>
-                  <div style={{ fontSize: '0.85rem', color: '#666' }}>
-                    👤 {vehicle.customer_name} • 📞 {vehicle.customer_phone}
+                )}
+              </div>
+
+              {/* BAY ASSIGNMENT */}
+              {walkInForm.serviceCategory === 'vehicle_service' && (
+                <div style={{ marginBottom: '1rem' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Assign to Bay (Optional)</label>
+                  <select 
+                    value={walkInForm.bayId} 
+                    onChange={(e) => setWalkInForm({ ...walkInForm, bayId: e.target.value })} 
+                    style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }}
+                  >
+                    <option value="">No bay (Queue only)</option>
+                    {bays.filter(b => b.status === 'available').map(bay => (
+                      <option key={bay.id} value={bay.id}>Bay {bay.bay_number} - Available</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* PAYMENT TYPE - WITH FEATURE CHECK */}
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                  Payment Type *
+                </label>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', flex: 1 }}>
+                    <input 
+                      type="radio" 
+                      name="paymentType"
+                      value="cash"
+                      checked={!walkInForm.paymentType || walkInForm.paymentType === 'cash'}
+                      onChange={(e) => setWalkInForm({ ...walkInForm, paymentType: e.target.value })}
+                      style={{ marginRight: '0.5rem' }}
+                    />
+                    💵 Pay Now
+                  </label>
+                  
+                  {/* CONDITIONAL PAY LATER BASED ON FEATURE */}
+                  {enabledFeatures.credit_customers && (
+                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', flex: 1 }}>
+                      <input 
+                        type="radio" 
+                        name="paymentType"
+                        value="credit"
+                        onChange={(e) => setWalkInForm({ ...walkInForm, paymentType: e.target.value })}
+                        style={{ marginRight: '0.5rem' }}
+                      />
+                      💳 Pay Later
+                    </label>
+                  )}
+                </div>
+                {walkInForm.paymentType === 'credit' && (
+                  <div style={{ marginTop: '0.5rem', padding: '0.75rem', background: '#fff3e0', borderRadius: '8px', fontSize: '0.85rem', color: '#f57c00' }}>
+                    ⚠️ This will be added to customer's unpaid bills
                   </div>
-                  <div style={{ fontSize: '0.8rem', color: '#999', marginTop: '0.25rem' }}>
-                    🚙 Visits: {vehicle.total_visits} • ⭐ {vehicle.loyalty_points} points
+                )}
+              </div>       
+
+              {/* STAFF ASSIGNMENT - WITH FEATURE CHECK */}
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.75rem', fontWeight: '500' }}>
+                  Assign Staff * {enabledFeatures.multi_staff_assignment ? '(Select one or more)' : ''}
+                </label>
+                
+                {enabledFeatures.multi_staff_assignment ? (
+                  // MULTI-STAFF ENABLED - Show checkboxes
+                  <div style={{ border: '2px solid #e0e0e0', borderRadius: '8px', padding: '1rem', background: '#f9f9f9' }}>
+                    {staff.length === 0 ? (
+                      <div style={{ textAlign: 'center', color: '#999', padding: '1rem' }}>
+                        No staff available. Please add staff first.
+                      </div>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.75rem' }}>
+                        {staff.map(s => (
+                          <label 
+                            key={s.id}
+                            style={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              padding: '0.75rem', 
+                              border: walkInForm.staffIds?.includes(s.id) ? '2px solid #006633' : '2px solid #e0e0e0',
+                              borderRadius: '8px',
+                              cursor: 'pointer',
+                              background: walkInForm.staffIds?.includes(s.id) ? '#e8f5e9' : 'white',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            <input 
+                              type="checkbox"
+                              checked={walkInForm.staffIds?.includes(s.id) || false}
+                              onChange={() => toggleStaff(s.id)}
+                              style={{ marginRight: '0.75rem', width: '18px', height: '18px', cursor: 'pointer' }}
+                            />
+                            <span style={{ fontWeight: walkInForm.staffIds?.includes(s.id) ? 'bold' : 'normal' }}>
+                              {s.full_name}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  // MULTI-STAFF DISABLED - Show single dropdown
+                  <select
+                    value={walkInForm.staffIds[0] || ''}
+                    onChange={(e) => setWalkInForm({ 
+                      ...walkInForm, 
+                      staffIds: e.target.value ? [parseInt(e.target.value)] : [] 
+                    })}
+                    required
+                    style={{ 
+                      width: '100%', 
+                      padding: '0.75rem', 
+                      border: '2px solid #e0e0e0', 
+                      borderRadius: '8px', 
+                      fontSize: '1rem',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    <option value="">Select Staff Member</option>
+                    {staff.map(s => (
+                      <option key={s.id} value={s.id}>{s.full_name}</option>
+                    ))}
+                  </select>
+                )}
+                
+                {/* COMMISSION PREVIEW */}
+                {walkInForm.staffIds && walkInForm.staffIds.length > 0 && (() => {
+                  const split = calculateCommissionSplit();
+                  return split ? (
+                    <div style={{ 
+                      marginTop: '0.75rem', 
+                      padding: '0.75rem', 
+                      background: '#e3f2fd', 
+                      borderRadius: '8px',
+                      border: '1px solid #2196f3'
+                    }}>
+                      <div style={{ fontSize: '0.85rem', color: '#1565c0', fontWeight: '600', marginBottom: '0.25rem' }}>
+                        💰 Commission Split:
+                      </div>
+                      <div style={{ fontSize: '0.9rem', color: '#1976d2' }}>
+                        Kshs {split.commissionPerStaff.toFixed(0)} each ({split.percentagePerStaff.toFixed(1)}% each)
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem' }}>
+                        {walkInForm.staffIds.length} staff × {split.percentagePerStaff.toFixed(1)}% = {split.staffCount} shares
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+                
+                {walkInForm.staffIds && walkInForm.staffIds.length === 0 && (
+                  <div style={{ 
+                    marginTop: '0.75rem', 
+                    padding: '0.75rem', 
+                    background: '#fff3e0', 
+                    borderRadius: '8px',
+                    fontSize: '0.85rem',
+                    color: '#f57c00'
+                  }}>
+                    ⚠️ Please select at least one staff member
+                  </div>
+                )}
+              </div>
+
+              {/* INFO BOX */}
+              {walkInForm.serviceCategory === 'other_service' && (
+                <div style={{ background: '#e8f5e9', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
+                  <div style={{ fontSize: '0.9rem', color: '#2e7d32' }}>
+                    💡 <strong>Other Service:</strong> No vehicle registration or bay needed. Staff will perform the service at customer's location or in service area.
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+              )}
 
-        {/* PHONE NUMBER */}
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Phone Number *</label>
-          <input 
-            type="tel" 
-            value={walkInForm.phone} 
-            onChange={(e) => {
-              const value = e.target.value;
-              setWalkInForm({ ...walkInForm, phone: value });
-              if (value.length >= 10) {
-                searchCustomer(value);
-              }
-            }} 
-            required 
-            placeholder="0722XXXXXX" 
-            style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} 
-          />
-        </div>
+              {/* BUTTONS */}
+              <button 
+                type="submit" 
+                disabled={walkInLoading || !walkInForm.staffIds || walkInForm.staffIds.length === 0}
+                style={{ 
+                  width: '100%', 
+                  background: walkInLoading ? '#ccc' : '#006633', 
+                  color: 'white', 
+                  border: 'none', 
+                  padding: '1rem', 
+                  borderRadius: '8px', 
+                  cursor: walkInLoading ? 'not-allowed' : 'pointer', 
+                  fontWeight: 'bold', 
+                  fontSize: '1rem', 
+                  marginBottom: '0.5rem' 
+                }}
+              >
+                {walkInLoading ? 'Registering...' : '✓ Register & Assign'}
+              </button>
 
-        {/* CUSTOMER NAME */}
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Customer Name (Optional)</label>
-          <input 
-            type="text" 
-            value={walkInForm.customerName} 
-            onChange={(e) => setWalkInForm({ ...walkInForm, customerName: e.target.value })} 
-            placeholder="John Doe" 
-            style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} 
-          />
-        </div>
-
-        {/* VEHICLE TYPE - Only show for vehicle services */}
-        {walkInForm.serviceCategory === 'vehicle_service' && (
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Vehicle Type *</label>
-            <select 
-              value={walkInForm.vehicleType} 
-              onChange={(e) => {
-                const newType = e.target.value;
-                setWalkInForm({ ...walkInForm, vehicleType: newType, serviceId: '' });
-                loadServices(walkInForm.serviceCategory, newType);
-              }} 
-              required 
-              style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }}
-            >
-              <option value="sedan">🚗 Sedan</option>
-              <option value="suv">🚙 SUV</option>
-              <option value="truck">🚚 Truck</option>
-              <option value="matatu">🚐 Matatu</option>
-            </select>
+              <button 
+                type="button" 
+                onClick={() => setShowWalkIn(false)} 
+                style={{ 
+                  width: '100%', 
+                  background: '#f0f0f0', 
+                  color: '#666', 
+                  border: 'none', 
+                  padding: '0.75rem', 
+                  borderRadius: '8px', 
+                  cursor: 'pointer' 
+                }}
+              >
+                Cancel
+              </button>
+            </form>
           </div>
-        )}
-
-        {/* SERVICE SELECTION */}
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Service *</label>
-          <select 
-            value={walkInForm.serviceId} 
-            onChange={(e) => setWalkInForm({ ...walkInForm, serviceId: e.target.value })} 
-            required 
-            style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }}
-          >
-            <option value="">Select Service</option>
-            {services.map(service => {
-              const price = walkInForm.serviceCategory === 'other_service' 
-                ? service.fixed_price 
-                : service.pricing?.[walkInForm.vehicleType] || 0;
-              
-              return (
-                <option key={service.id} value={service.id}>
-                  {service.name} - Kshs {price ? price.toLocaleString() : '0'}
-                </option>
-              );
-            })}
-          </select>
-          {services.length === 0 && (
-            <div style={{ fontSize: '0.85rem', color: '#f57c00', marginTop: '0.5rem', background: '#fff3e0', padding: '0.5rem', borderRadius: '4px' }}>
-              ⚠️ No services available. Please add services first in Services menu.
-            </div>
-          )}
         </div>
-
-        {/* BAY ASSIGNMENT - Only for vehicle services */}
-        {walkInForm.serviceCategory === 'vehicle_service' && (
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Assign to Bay (Optional)</label>
-            <select 
-              value={walkInForm.bayId} 
-              onChange={(e) => setWalkInForm({ ...walkInForm, bayId: e.target.value })} 
-              style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }}
-            >
-              <option value="">No bay (Queue only)</option>
-              {bays.filter(b => b.status === 'available').map(bay => (
-                <option key={bay.id} value={bay.id}>Bay {bay.bay_number} - Available</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* STAFF ASSIGNMENT */}
-        <div style={{ marginBottom: '1.5rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Assign Staff *</label>
-          <select 
-            value={walkInForm.staffId} 
-            onChange={(e) => setWalkInForm({ ...walkInForm, staffId: e.target.value })} 
-            required 
-            style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }}
-          >
-            <option value="">Select Staff</option>
-            {staff.map(s => (
-              <option key={s.id} value={s.id}>{s.full_name}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* INFO BOX */}
-        {walkInForm.serviceCategory === 'other_service' && (
-          <div style={{ background: '#e8f5e9', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
-            <div style={{ fontSize: '0.9rem', color: '#2e7d32' }}>
-              💡 <strong>Other Service:</strong> No vehicle registration or bay needed. Staff will perform the service at customer's location or in service area.
-            </div>
-          </div>
-        )}
-
-        {/* BUTTONS */}
-        <button 
-          type="submit" 
-          disabled={walkInLoading} 
-          style={{ 
-            width: '100%', 
-            background: walkInLoading ? '#ccc' : '#006633', 
-            color: 'white', 
-            border: 'none', 
-            padding: '1rem', 
-            borderRadius: '8px', 
-            cursor: walkInLoading ? 'not-allowed' : 'pointer', 
-            fontWeight: 'bold', 
-            fontSize: '1rem', 
-            marginBottom: '0.5rem' 
-          }}
-        >
-          {walkInLoading ? 'Registering...' : '✓ Register & Assign'}
-        </button>
-
-        <button 
-          type="button" 
-          onClick={() => setShowWalkIn(false)} 
-          style={{ 
-            width: '100%', 
-            background: '#f0f0f0', 
-            color: '#666', 
-            border: 'none', 
-            padding: '0.75rem', 
-            borderRadius: '8px', 
-            cursor: 'pointer' 
-          }}
-        >
-          Cancel
-        </button>
-      </form>
-    </div>
-  </div>
-)}
+      )}
 
       {/* PAYMENT RECORDING MODAL */}
       {showPaymentModal && selectedBooking && (
