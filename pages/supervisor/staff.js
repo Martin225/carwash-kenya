@@ -16,16 +16,21 @@ export default function StaffManagement() {
   const [deleting, setDeleting] = useState(false);
   const [resetting, setResetting] = useState(false);
   
-  // NEW: Edit commission states
-  const [showEditCommission, setShowEditCommission] = useState(false);
+  // FULL EDIT STATES
+  const [showFullEdit, setShowFullEdit] = useState(false);
   const [editingStaff, setEditingStaff] = useState(null);
-  const [newCommissionPercent, setNewCommissionPercent] = useState('');
+  const [editForm, setEditForm] = useState({
+    fullName: '',
+    phone: '',
+    commissionPercentage: '',
+    pinCode: '' // Optional - only update if provided
+  });
   
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
     pinCode: '',
-    commissionPercentage: '10'  // CHANGED: from 'commission' to 'commissionPercentage'
+    commissionPercentage: '10'
   });
 
   useEffect(() => {
@@ -54,7 +59,11 @@ export default function StaffManagement() {
       const response = await fetch('/api/supervisor/staff', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, businessId: user.business_id })
+        body: JSON.stringify({ 
+          ...formData, 
+          commission: formData.commissionPercentage, // Map to API field
+          businessId: user.business_id 
+        })
       });
 
       const data = await response.json();
@@ -71,33 +80,42 @@ export default function StaffManagement() {
     }
   }
 
-  // NEW: Handle update commission
-  async function handleUpdateCommission(e) {
+  // FULL EDIT HANDLER
+  async function handleFullEdit(e) {
     e.preventDefault();
     
     try {
-      const response = await fetch('/api/owner/staff', {
+      const updateData = {
+        staffId: editingStaff.id,
+        fullName: editForm.fullName,
+        phone: editForm.phone,
+        commission: parseFloat(editForm.commissionPercentage)
+      };
+
+      // Only include PIN if it was changed
+      if (editForm.pinCode && editForm.pinCode.length === 4) {
+        updateData.pinCode = editForm.pinCode;
+      }
+
+      const response = await fetch('/api/supervisor/staff', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          staffId: editingStaff.id,
-          commissionPercentage: parseFloat(newCommissionPercent)
-        })
+        body: JSON.stringify(updateData)
       });
 
       const data = await response.json();
       
       if (data.success) {
-        showToast('✅ Commission updated!', 'success');
-        setShowEditCommission(false);
+        showToast('✅ Staff updated successfully!', 'success');
+        setShowFullEdit(false);
         setEditingStaff(null);
-        setNewCommissionPercent('');
+        setEditForm({ fullName: '', phone: '', commissionPercentage: '', pinCode: '' });
         loadStaff();
       } else {
         showToast(data.message, 'error');
       }
     } catch (error) {
-      showToast('Failed to update commission', 'error');
+      showToast('Failed to update staff', 'error');
     }
   }
 
@@ -133,7 +151,11 @@ export default function StaffManagement() {
 
       const data = await response.json();
       if (data.success) {
-        showToast('✅ Staff deleted permanently', 'success');
+        if (data.deactivated) {
+          showToast('✅ Staff deactivated (has booking history)', 'success');
+        } else {
+          showToast('✅ Staff deleted permanently', 'success');
+        }
         setConfirmDelete(null);
         loadStaff();
       } else {
@@ -206,7 +228,6 @@ export default function StaffManagement() {
             </div>
           ) : (
             <div style={{ background: 'white', borderRadius: '12px', overflow: 'auto', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-              {/* Table Header - UPDATED with Edit column */}
               <div style={{ background: '#f9f9f9', padding: '1rem 1.5rem', borderBottom: '2px solid #e0e0e0', display: 'grid', gridTemplateColumns: '200px 150px 100px 120px 100px 480px', gap: '1rem', fontWeight: 'bold', fontSize: '0.9rem', color: '#666', minWidth: '1150px' }}>
                 <div>Name</div>
                 <div>Phone</div>
@@ -216,7 +237,6 @@ export default function StaffManagement() {
                 <div>Actions</div>
               </div>
 
-              {/* Staff Rows - UPDATED */}
               {staff.map((member) => (
                 <div key={member.id} style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #f0f0f0', display: 'grid', gridTemplateColumns: '200px 150px 100px 120px 100px 480px', gap: '1rem', alignItems: 'center', background: member.is_active ? 'white' : '#fafafa', minWidth: '1150px' }}>
                   <div style={{ fontWeight: '600', color: '#333' }}>{member.full_name}</div>
@@ -231,12 +251,17 @@ export default function StaffManagement() {
                     </span>
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    {/* EDIT COMMISSION BUTTON - NEW */}
+                    {/* EDIT BUTTON - Opens full edit modal */}
                     <button
                       onClick={() => {
                         setEditingStaff(member);
-                        setNewCommissionPercent(member.commission_percentage);
-                        setShowEditCommission(true);
+                        setEditForm({
+                          fullName: member.full_name,
+                          phone: member.phone_number,
+                          commissionPercentage: member.commission_percentage,
+                          pinCode: '' // Don't show current PIN
+                        });
+                        setShowFullEdit(true);
                       }}
                       style={{ 
                         padding: '0.5rem 0.75rem', 
@@ -249,9 +274,9 @@ export default function StaffManagement() {
                         fontSize: '0.8rem', 
                         whiteSpace: 'nowrap' 
                       }}
-                      title="Edit Commission %"
+                      title="Edit All Details"
                     >
-                      ✏️ Edit %
+                      ✏️ Edit
                     </button>
                     
                     <button 
@@ -285,10 +310,10 @@ export default function StaffManagement() {
         </div>
       </div>
 
-      {/* ADD STAFF MODAL - UPDATED */}
+      {/* ADD STAFF MODAL */}
       {showAdd && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }} onClick={() => setShowAdd(false)}>
-          <div style={{ background: 'white', padding: '2rem', borderRadius: '20px', maxWidth: '500px', width: '100%' }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ background: 'white', padding: '2rem', borderRadius: '20px', maxWidth: '500px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
             <h2 style={{ color: '#006633', marginBottom: '1.5rem' }}>Add New Staff Member</h2>
             <form onSubmit={handleAdd}>
               <div style={{ marginBottom: '1rem' }}>
@@ -328,7 +353,6 @@ export default function StaffManagement() {
                 <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem' }}>Staff will use this PIN to login</div>
               </div>
 
-              {/* FIXED: Commission Percentage */}
               <div style={{ marginBottom: '1.5rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
                   Commission Percentage (%) *
@@ -356,8 +380,8 @@ export default function StaffManagement() {
         </div>
       )}
 
-      {/* EDIT COMMISSION MODAL - NEW */}
-      {showEditCommission && editingStaff && (
+      {/* FULL EDIT MODAL - NEW! */}
+      {showFullEdit && editingStaff && (
         <div 
           style={{ 
             position: 'fixed', 
@@ -372,64 +396,112 @@ export default function StaffManagement() {
             zIndex: 1000,
             padding: '1rem'
           }} 
-          onClick={() => setShowEditCommission(false)}
+          onClick={() => setShowFullEdit(false)}
         >
           <div 
             style={{ 
               background: 'white', 
               padding: '2rem', 
               borderRadius: '20px', 
-              maxWidth: '450px', 
-              width: '100%'
+              maxWidth: '500px', 
+              width: '100%',
+              maxHeight: '90vh',
+              overflowY: 'auto'
             }} 
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 style={{ color: '#006633', marginBottom: '0.5rem' }}>✏️ Edit Commission</h2>
+            <h2 style={{ color: '#006633', marginBottom: '0.5rem' }}>✏️ Edit Staff Member</h2>
             <p style={{ color: '#666', marginBottom: '1.5rem' }}>
-              Update commission percentage for <strong>{editingStaff.full_name}</strong>
+              Update details for <strong>{editingStaff.full_name}</strong>
             </p>
 
-            <form onSubmit={handleUpdateCommission}>
-              <div style={{ background: '#f9f9f9', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
-                <div style={{ fontSize: '0.85rem', color: '#999', marginBottom: '0.25rem' }}>
-                  Current Commission
-                </div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f57c00' }}>
-                  {editingStaff.commission_percentage}%
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '1.5rem' }}>
+            <form onSubmit={handleFullEdit}>
+              <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                  New Commission Percentage (%) *
+                  Full Name *
                 </label>
                 <input
-                  type="number"
-                  value={newCommissionPercent}
-                  onChange={(e) => setNewCommissionPercent(e.target.value)}
+                  type="text"
+                  value={editForm.fullName}
+                  onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
                   required
-                  min="0"
-                  max="100"
-                  step="0.1"
-                  placeholder={editingStaff.commission_percentage}
+                  placeholder="e.g., John Kamau"
                   style={{ 
                     width: '100%', 
                     padding: '0.75rem', 
                     border: '2px solid #e0e0e0', 
                     borderRadius: '8px', 
-                    fontSize: '1.2rem',
-                    fontWeight: 'bold',
-                    boxSizing: 'border-box',
-                    textAlign: 'center'
+                    fontSize: '1rem',
+                    boxSizing: 'border-box'
                   }}
                 />
-                <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem', textAlign: 'center' }}>
-                  Enter a value between 0 and 100
+              </div>
+
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                  Phone Number *
+                </label>
+                <input
+                  type="tel"
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                  required
+                  placeholder="0722XXXXXX"
+                  style={{ 
+                    width: '100%', 
+                    padding: '0.75rem', 
+                    border: '2px solid #e0e0e0', 
+                    borderRadius: '8px', 
+                    fontSize: '1rem',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                  Commission Percentage (%) *
+                </label>
+                <input
+                  type="number"
+                  value={editForm.commissionPercentage}
+                  onChange={(e) => setEditForm({ ...editForm, commissionPercentage: e.target.value })}
+                  required
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  placeholder="10"
+                  style={{ 
+                    width: '100%', 
+                    padding: '0.75rem', 
+                    border: '2px solid #e0e0e0', 
+                    borderRadius: '8px', 
+                    fontSize: '1rem',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem' }}>
+                  Range: 0-100%
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                  New PIN (Optional)
+                </label>
+                <PinInput
+                  value={editForm.pinCode}
+                  onChange={(e) => setEditForm({ ...editForm, pinCode: e.target.value })}
+                  placeholder="Leave blank to keep current"
+                  maxLength={4}
+                />
+                <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem' }}>
+                  Only fill this if you want to change the PIN
                 </div>
               </div>
 
               <div style={{ background: '#e3f2fd', padding: '0.75rem', borderRadius: '8px', marginBottom: '1.5rem', fontSize: '0.85rem', color: '#1976d2' }}>
-                💡 <strong>Note:</strong> This will affect future jobs. Past commissions remain unchanged.
+                💡 <strong>Note:</strong> Commission changes affect future jobs. Past records remain unchanged.
               </div>
 
               <button 
@@ -447,12 +519,12 @@ export default function StaffManagement() {
                   marginBottom: '0.5rem'
                 }}
               >
-                ✓ Update Commission
+                ✓ Update Staff
               </button>
 
               <button 
                 type="button"
-                onClick={() => setShowEditCommission(false)}
+                onClick={() => setShowFullEdit(false)}
                 style={{ 
                   width: '100%', 
                   background: '#f0f0f0', 

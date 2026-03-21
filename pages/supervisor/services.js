@@ -12,6 +12,10 @@ export default function ServiceManagement() {
   const [loading, setLoading] = useState(true);
   const [showAddService, setShowAddService] = useState(false);
   const [editingService, setEditingService] = useState(null);
+  const [saving, setSaving] = useState(false); // NEW: Prevent double-submit
+  const [deleting, setDeleting] = useState(false); // NEW: Delete state
+  const [confirmDelete, setConfirmDelete] = useState(null); // NEW: Confirm modal
+  
   const [serviceForm, setServiceForm] = useState({
     serviceName: '',
     description: '',
@@ -50,6 +54,10 @@ export default function ServiceManagement() {
 
   async function handleSaveService(e) {
     e.preventDefault();
+    
+    // FIX 1: Prevent double-submit
+    if (saving) return;
+    setSaving(true);
 
     try {
       const method = editingService ? 'PUT' : 'POST';
@@ -66,7 +74,7 @@ export default function ServiceManagement() {
       const data = await response.json();
 
       if (data.success) {
-        showToast(editingService ? 'Service updated!' : 'Service created!', 'success');
+        showToast(editingService ? '✅ Service updated!' : '✅ Service created!', 'success');
         setShowAddService(false);
         setEditingService(null);
         setServiceForm({
@@ -82,6 +90,8 @@ export default function ServiceManagement() {
       }
     } catch (error) {
       showToast('Failed to save service', 'error');
+    } finally {
+      setSaving(false); // Re-enable button
     }
   }
 
@@ -112,18 +122,51 @@ export default function ServiceManagement() {
           isActive: !currentStatus,
           businessId: user.business_id,
           serviceName: services.find(s => s.id === serviceId).name,
-          description: services.find(s => s.id === serviceId).description
+          description: services.find(s => s.id === serviceId).description,
+          serviceCategory: services.find(s => s.id === serviceId).service_category,
+          fixedPrice: services.find(s => s.id === serviceId).fixed_price,
+          pricing: services.find(s => s.id === serviceId).pricing
         })
       });
 
       const data = await response.json();
 
       if (data.success) {
-        showToast(currentStatus ? 'Service deactivated' : 'Service activated', 'success');
+        showToast(currentStatus ? '✅ Service deactivated' : '✅ Service activated', 'success');
         loadServices();
       }
     } catch (error) {
       showToast('Failed to update service', 'error');
+    }
+  }
+
+  // NEW: Delete service function
+  async function deleteService(serviceId) {
+    setDeleting(true);
+    try {
+      const response = await fetch('/api/supervisor/services', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serviceId })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        if (data.deactivated) {
+          showToast('✅ Service deactivated (has booking history)', 'success');
+        } else {
+          showToast('✅ Service deleted permanently', 'success');
+        }
+        setConfirmDelete(null);
+        loadServices();
+      } else {
+        showToast(data.message, 'error');
+      }
+    } catch (error) {
+      showToast('Network error. Please try again.', 'error');
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -240,12 +283,20 @@ export default function ServiceManagement() {
                             </span>
                           </td>
                           <td style={{ padding: '1rem', textAlign: 'center' }}>
-                            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                              <button onClick={() => editService(service)} style={{ background: '#2196f3', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem' }}>
+                            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                              <button onClick={() => editService(service)} style={{ background: '#2196f3', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
                                 ✏️ Edit
                               </button>
-                              <button onClick={() => toggleService(service.id, service.isActive)} style={{ background: service.isActive ? '#f44336' : '#4caf50', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem' }}>
-                                {service.isActive ? '✗ Disable' : '✓ Enable'}
+                              <button onClick={() => toggleService(service.id, service.isActive)} style={{ background: service.isActive ? '#ff9800' : '#4caf50', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
+                                {service.isActive ? '⏸️ Disable' : '✓ Enable'}
+                              </button>
+                              {/* NEW: Delete button */}
+                              <button 
+                                onClick={() => setConfirmDelete(service)} 
+                                style={{ background: '#f44336', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem', whiteSpace: 'nowrap' }}
+                                title="Delete service"
+                              >
+                                🗑️ Delete
                               </button>
                             </div>
                           </td>
@@ -262,7 +313,7 @@ export default function ServiceManagement() {
 
       {/* ADD/EDIT SERVICE MODAL */}
       {showAddService && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }} onClick={() => setShowAddService(false)}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }} onClick={() => !saving && setShowAddService(false)}>
           <div style={{ background: 'white', padding: '2rem', borderRadius: '20px', maxWidth: '700px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
             <h2 style={{ color: '#006633', marginBottom: '1.5rem' }}>
               {editingService ? '✏️ Edit Service' : '✨ Add New Service'}
@@ -276,6 +327,7 @@ export default function ServiceManagement() {
                   value={serviceForm.serviceName} 
                   onChange={(e) => setServiceForm({ ...serviceForm, serviceName: e.target.value })} 
                   required 
+                  disabled={saving}
                   placeholder="e.g., Premium Wash, Carpet Cleaning, Office Cleaning" 
                   style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} 
                 />
@@ -286,6 +338,7 @@ export default function ServiceManagement() {
                 <textarea 
                   value={serviceForm.description} 
                   onChange={(e) => setServiceForm({ ...serviceForm, description: e.target.value })} 
+                  disabled={saving}
                   placeholder="Brief description of the service" 
                   rows="2"
                   style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box', resize: 'vertical' }} 
@@ -304,8 +357,9 @@ export default function ServiceManagement() {
                     padding: '1rem', 
                     border: serviceForm.serviceCategory === 'vehicle_service' ? '3px solid #006633' : '2px solid #e0e0e0',
                     borderRadius: '8px',
-                    cursor: 'pointer',
-                    background: serviceForm.serviceCategory === 'vehicle_service' ? '#e8f5e9' : 'white'
+                    cursor: saving ? 'not-allowed' : 'pointer',
+                    background: serviceForm.serviceCategory === 'vehicle_service' ? '#e8f5e9' : 'white',
+                    opacity: saving ? 0.6 : 1
                   }}>
                     <input 
                       type="radio" 
@@ -313,6 +367,7 @@ export default function ServiceManagement() {
                       value="vehicle_service"
                       checked={serviceForm.serviceCategory === 'vehicle_service'}
                       onChange={(e) => setServiceForm({ ...serviceForm, serviceCategory: e.target.value })}
+                      disabled={saving}
                       style={{ marginRight: '0.75rem' }}
                     />
                     <div>
@@ -327,8 +382,9 @@ export default function ServiceManagement() {
                     padding: '1rem', 
                     border: serviceForm.serviceCategory === 'other_service' ? '3px solid #006633' : '2px solid #e0e0e0',
                     borderRadius: '8px',
-                    cursor: 'pointer',
-                    background: serviceForm.serviceCategory === 'other_service' ? '#e8f5e9' : 'white'
+                    cursor: saving ? 'not-allowed' : 'pointer',
+                    background: serviceForm.serviceCategory === 'other_service' ? '#e8f5e9' : 'white',
+                    opacity: saving ? 0.6 : 1
                   }}>
                     <input 
                       type="radio" 
@@ -336,6 +392,7 @@ export default function ServiceManagement() {
                       value="other_service"
                       checked={serviceForm.serviceCategory === 'other_service'}
                       onChange={(e) => setServiceForm({ ...serviceForm, serviceCategory: e.target.value })}
+                      disabled={saving}
                       style={{ marginRight: '0.75rem' }}
                     />
                     <div>
@@ -362,6 +419,7 @@ export default function ServiceManagement() {
                         type="number" 
                         value={serviceForm.pricing.sedan} 
                         onChange={(e) => setServiceForm({ ...serviceForm, pricing: { ...serviceForm.pricing, sedan: e.target.value } })} 
+                        disabled={saving}
                         placeholder="e.g., 500" 
                         min="0"
                         style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} 
@@ -374,6 +432,7 @@ export default function ServiceManagement() {
                         type="number" 
                         value={serviceForm.pricing.suv} 
                         onChange={(e) => setServiceForm({ ...serviceForm, pricing: { ...serviceForm.pricing, suv: e.target.value } })} 
+                        disabled={saving}
                         placeholder="e.g., 700" 
                         min="0"
                         style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} 
@@ -386,6 +445,7 @@ export default function ServiceManagement() {
                         type="number" 
                         value={serviceForm.pricing.truck} 
                         onChange={(e) => setServiceForm({ ...serviceForm, pricing: { ...serviceForm.pricing, truck: e.target.value } })} 
+                        disabled={saving}
                         placeholder="e.g., 1000" 
                         min="0"
                         style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} 
@@ -398,6 +458,7 @@ export default function ServiceManagement() {
                         type="number" 
                         value={serviceForm.pricing.matatu} 
                         onChange={(e) => setServiceForm({ ...serviceForm, pricing: { ...serviceForm.pricing, matatu: e.target.value } })} 
+                        disabled={saving}
                         placeholder="e.g., 1200" 
                         min="0"
                         style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} 
@@ -413,6 +474,7 @@ export default function ServiceManagement() {
                     value={serviceForm.fixedPrice} 
                     onChange={(e) => setServiceForm({ ...serviceForm, fixedPrice: e.target.value })} 
                     required={serviceForm.serviceCategory === 'other_service'}
+                    disabled={saving}
                     placeholder="e.g., 2000" 
                     min="0"
                     style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem', boxSizing: 'border-box' }} 
@@ -423,14 +485,84 @@ export default function ServiceManagement() {
                 </div>
               )}
 
-              <button type="submit" style={{ width: '100%', background: '#006633', color: 'white', border: 'none', padding: '1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', marginBottom: '0.5rem' }}>
-                {editingService ? '💾 Update Service' : '✓ Create Service'}
+              {/* FIX 1: Disabled button while saving */}
+              <button 
+                type="submit" 
+                disabled={saving}
+                style={{ 
+                  width: '100%', 
+                  background: saving ? '#ccc' : '#006633', 
+                  color: 'white', 
+                  border: 'none', 
+                  padding: '1rem', 
+                  borderRadius: '8px', 
+                  cursor: saving ? 'not-allowed' : 'pointer', 
+                  fontWeight: 'bold', 
+                  fontSize: '1rem', 
+                  marginBottom: '0.5rem' 
+                }}
+              >
+                {saving ? '⏳ Saving...' : (editingService ? '💾 Update Service' : '✓ Create Service')}
               </button>
 
-              <button type="button" onClick={() => setShowAddService(false)} style={{ width: '100%', background: '#f0f0f0', color: '#666', border: 'none', padding: '0.75rem', borderRadius: '8px', cursor: 'pointer' }}>
+              <button 
+                type="button" 
+                onClick={() => setShowAddService(false)} 
+                disabled={saving}
+                style={{ 
+                  width: '100%', 
+                  background: '#f0f0f0', 
+                  color: '#666', 
+                  border: 'none', 
+                  padding: '0.75rem', 
+                  borderRadius: '8px', 
+                  cursor: saving ? 'not-allowed' : 'pointer' 
+                }}
+              >
                 Cancel
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* NEW: DELETE CONFIRMATION MODAL */}
+      {confirmDelete && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1001, padding: '1rem' }}>
+          <div style={{ background: 'white', padding: '2rem', borderRadius: '20px', maxWidth: '450px', width: '100%', textAlign: 'center' }}>
+            <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>⚠️</div>
+            <h2 style={{ color: '#f44336', marginBottom: '0.5rem' }}>Delete Service?</h2>
+            <p style={{ color: '#666', marginBottom: '1rem', fontSize: '1.1rem' }}>
+              <strong>{confirmDelete.name}</strong>
+            </p>
+            <p style={{ color: '#666', marginBottom: '1.5rem' }}>
+              This service will be permanently removed or deactivated if it has booking history.
+            </p>
+            <div style={{ background: '#fff3e0', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', textAlign: 'left' }}>
+              <p style={{ margin: '0.25rem 0', fontSize: '0.9rem', color: '#666' }}>
+                📋 {confirmDelete.description || 'No description'}
+              </p>
+              <p style={{ margin: '0.25rem 0', fontSize: '0.9rem', color: '#666' }}>
+                {confirmDelete.service_category === 'other_service' 
+                  ? `💰 Kshs ${confirmDelete.fixed_price?.toLocaleString() || 0}`
+                  : `🚗 Sedan: Kshs ${confirmDelete.pricing?.sedan?.toLocaleString() || 0}`
+                }
+              </p>
+            </div>
+            <button
+              onClick={() => deleteService(confirmDelete.id)}
+              disabled={deleting}
+              style={{ width: '100%', background: deleting ? '#ccc' : '#f44336', color: 'white', border: 'none', padding: '1rem', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold', cursor: deleting ? 'not-allowed' : 'pointer', marginBottom: '0.75rem' }}
+            >
+              {deleting ? '⏳ Deleting...' : '🗑️ Yes, Delete Service'}
+            </button>
+            <button
+              onClick={() => setConfirmDelete(null)}
+              disabled={deleting}
+              style={{ width: '100%', background: '#f0f0f0', color: '#666', border: 'none', padding: '0.75rem', borderRadius: '8px', cursor: deleting ? 'not-allowed' : 'pointer', fontSize: '1rem' }}
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}

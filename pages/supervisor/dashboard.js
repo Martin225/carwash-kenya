@@ -111,18 +111,23 @@ export default function SupervisorDashboard() {
   }
 
   async function loadServices(category, vehicleType) {
-    try {
-      const response = await fetch(`/api/supervisor/services?businessId=${user.business_id}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        let filtered = (data.services || []).filter(s => s.service_category === category);
-        setServices(filtered);
-      }
-    } catch (error) {
-      console.error('Error loading services:', error);
+  try {
+    const response = await fetch(`/api/supervisor/services?businessId=${user.business_id}`);
+    const data = await response.json();
+    
+    if (data.success) {
+
+      // FIX 3: Filter by category AND only show ACTIVE services
+
+      let filtered = (data.services || []).filter(s => 
+        s.service_category === category && s.isActive === true
+      );
+      setServices(filtered);
     }
+  } catch (error) {
+    console.error('Error loading services:', error);
   }
+}
 
   async function searchCustomer(searchText) {
     if (searchText.length < 3) {

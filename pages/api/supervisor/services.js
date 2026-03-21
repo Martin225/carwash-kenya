@@ -3,7 +3,7 @@ import { query, querySingle } from '../../../lib/db';
 export default async function handler(req, res) {
   const { businessId } = req.query;
 
-  // GET - Load services
+  // GET - Load services (FIX 3: Only return ACTIVE services for walk-in dropdown)
   if (req.method === 'GET') {
     try {
       if (!businessId) {
@@ -21,7 +21,7 @@ export default async function handler(req, res) {
 
       const branchIds = branches.map(b => b.id);
 
-      // Get all services with category
+      // Get all services with category (including inactive for management page)
       const services = await query(
         `SELECT 
           s.*,
@@ -239,6 +239,67 @@ export default async function handler(req, res) {
     } catch (error) {
       console.error('Error updating service:', error);
       return res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  // DELETE - Delete service (NEW!)
+  if (req.method === 'DELETE') {
+    try {
+      const { serviceId } = req.body;
+
+      if (!serviceId) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Service ID required' 
+        });
+      }
+
+      // Check if service has any bookings
+      const bookingsCount = await query(
+        'SELECT COUNT(*) as count FROM bookings WHERE service_id = $1',
+        [serviceId]
+      );
+
+      const hasBookings = parseInt(bookingsCount[0]?.count || 0) > 0;
+
+      if (hasBookings) {
+        // Service has bookings - deactivate instead of delete
+        await query(
+          'UPDATE services SET is_active = false, updated_at = NOW() WHERE id = $1',
+          [serviceId]
+        );
+
+        console.log('✅ Service deactivated (has booking history):', serviceId);
+
+        return res.status(200).json({
+          success: true,
+          message: 'Service deactivated (has booking history)',
+          deactivated: true
+        });
+      } else {
+        // No bookings - safe to delete permanently
+        
+        // First delete pricing records
+        await query('DELETE FROM service_pricing WHERE service_id = $1', [serviceId]);
+        
+        // Then delete the service
+        await query('DELETE FROM services WHERE id = $1', [serviceId]);
+
+        console.log('✅ Service deleted permanently:', serviceId);
+
+        return res.status(200).json({
+          success: true,
+          message: 'Service deleted permanently',
+          deleted: true
+        });
+      }
+
+    } catch (error) {
+      console.error('Error deleting service:', error);
+      return res.status(500).json({ 
+        success: false, 
+        message: error.message || 'Failed to delete service' 
+      });
     }
   }
 
